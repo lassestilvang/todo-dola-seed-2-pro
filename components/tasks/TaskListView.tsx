@@ -9,6 +9,8 @@ interface TaskListViewProps {
   title: string;
 }
 
+import AddTaskButton from './AddTaskButton';
+
 export default function TaskListView({ view, title }: TaskListViewProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [showCompleted, setShowCompleted] = useState(false);
