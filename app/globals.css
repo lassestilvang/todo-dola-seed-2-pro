@@ -46,6 +46,31 @@
   html {
     @apply font-sans;
   }
+
+  /* Touch targets for mobile */
+  @media (max-width: 640px) {
+    button, input, textarea, select {
+      min-height: 44px;
+      min-width: 44px;
+    }
+
+    .p-4 {
+      padding: 1rem;
+    }
+
+    .gap-4 {
+      gap: 1rem;
+    }
+
+    .pb-safe {
+      padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+    }
+  }
+
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 @theme inline {
