@@ -1,98 +1,97 @@
-import Database from 'better-sqlite3';
+import initSqlJs, { Database, SqlJsStatic } from 'sql.js';
 import path from 'path';
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs';
+import { getPendingMigrations, applyMigration } from './migrations';
 
-const dbPath = path.join(process.cwd(), 'db', 'planner.db');
+const dbPath = path.join(/* turbopackIgnore: true */ process.cwd(), 'db', 'planner.db');
 
-const db = new Database(dbPath);
+let dbInstance: Database | null = null;
+let SQLInstance: SqlJsStatic | null = null;
 
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
+export async function initDb(): Promise<Database> {
+  if (dbInstance) return dbInstance;
 
-// Migrations
-db.exec(`
-  CREATE TABLE IF NOT EXISTS lists (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    emoji TEXT,
-    color TEXT,
-    is_inbox INTEGER DEFAULT 0,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  );
+  // Use the Node.js compatible build
+  SQLInstance = await initSqlJs({
+    locateFile: (file: string) => {
+      if (file.endsWith('.wasm')) {
+        const possiblePaths = [
+          path.resolve(__dirname, '../../node_modules/.pnpm/sql.js@1.14.1/node_modules/sql.js/dist/sql-wasm.wasm'),
+          path.resolve(process.cwd(), 'node_modules/.pnpm/sql.js@1.14.1/node_modules/sql.js/dist/sql-wasm.wasm'),
+          path.resolve(process.cwd(), 'node_modules/sql.js/dist/sql-wasm.wasm'),
+        ];
+        for (const p of possiblePaths) {
+          if (existsSync(p)) return p;
+        }
+        return 'sql-wasm.wasm';
+      }
+      return file;
+    }
+  });
 
-  CREATE TABLE IF NOT EXISTS labels (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    emoji TEXT,
-    color TEXT,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  );
+  // Ensure db directory exists
+  const dbDir = path.dirname(dbPath);
+  if (!existsSync(dbDir)) {
+    mkdirSync(dbDir, { recursive: true });
+  }
 
-  CREATE TABLE IF NOT EXISTS tasks (
-    id TEXT PRIMARY KEY,
-    list_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT,
-    date INTEGER,
-    deadline INTEGER,
-    reminder INTEGER,
-    estimate INTEGER,
-    actual_time INTEGER,
-    priority TEXT CHECK (priority IN ('high', 'medium', 'low', 'none')) DEFAULT 'none',
-    completed INTEGER DEFAULT 0,
-    completed_at INTEGER,
-    recurring_type TEXT,
-    recurring_config TEXT,
-    attachment_path TEXT,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE CASCADE
-  );
+  // Load existing DB or create new one
+  let newDb: Database;
+  if (existsSync(dbPath)) {
+    const dbBuffer = new Uint8Array(readFileSync(dbPath));
+    newDb = new SQLInstance.Database(dbBuffer);
+  } else {
+    newDb = new SQLInstance.Database();
+  }
 
-  CREATE TABLE IF NOT EXISTS task_labels (
-    task_id TEXT NOT NULL,
-    label_id TEXT NOT NULL,
-    PRIMARY KEY (task_id, label_id),
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-    FOREIGN KEY (label_id) REFERENCES labels(id) ON DELETE CASCADE
-  );
+  dbInstance = newDb;
 
-  CREATE TABLE IF NOT EXISTS subtasks (
-    id TEXT PRIMARY KEY,
-    task_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    completed INTEGER DEFAULT 0,
-    completed_at INTEGER,
-    sort_order INTEGER NOT NULL,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-  );
+  // Run migrations
+  const pendingMigrations = getPendingMigrations({ exec: dbInstance.exec.bind(dbInstance) });
+  for (const migration of pendingMigrations) {
+    applyMigration({ exec: dbInstance.exec.bind(dbInstance) }, migration);
+  }
 
-  CREATE TABLE IF NOT EXISTS task_history (
-    id TEXT PRIMARY KEY,
-    task_id TEXT NOT NULL,
-    field TEXT NOT NULL,
-    old_value TEXT,
-    new_value TEXT,
-    changed_at INTEGER NOT NULL,
-    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
-  );
+  // Initialize inbox list if it doesn't exist
+  const results = dbInstance.exec('SELECT 1 FROM lists WHERE is_inbox = 1');
+  const inboxExists = results && results.length > 0;
+  if (!inboxExists) {
+    const now = Date.now();
+    dbInstance.exec(
+      `INSERT INTO lists (id, name, emoji, color, is_inbox, sort_order, created_at, updated_at) VALUES ('inbox', 'Inbox', '📥', '#3b82f6', 1, 0, ${now}, ${now})`
+    );
+  }
 
-  CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(date);
-  CREATE INDEX IF NOT EXISTS idx_tasks_list_id ON tasks(list_id);
-  CREATE INDEX IF NOT EXISTS idx_tasks_completed ON tasks(completed);
-`);
-
-// Initialize inbox list if it doesn't exist
-const inboxExists = db.prepare('SELECT 1 FROM lists WHERE is_inbox = 1').get();
-if (!inboxExists) {
-  const now = Date.now();
-  db.prepare(`
-    INSERT INTO lists (id, name, emoji, color, is_inbox, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run('inbox', 'Inbox', '📥', '#3b82f6', 1, now, now);
+  return dbInstance;
 }
 
-export default db;
+export function getDb(): Database | null {
+  return dbInstance;
+}
+
+export function saveDb(): void {
+  if (dbInstance) {
+    const data = dbInstance.export();
+    writeFileSync(dbPath, Buffer.from(data));
+  }
+}
+
+export function resetDb(): void {
+  dbInstance = null;
+  SQLInstance = null;
+}
+
+export async function clearDb(): Promise<void> {
+  const db = await initDb();
+  db.exec('DELETE FROM task_history');
+  db.exec('DELETE FROM template_labels');
+  db.exec('DELETE FROM task_templates');
+  db.exec('DELETE FROM subtasks');
+  db.exec('DELETE FROM task_labels');
+  db.exec('DELETE FROM tasks');
+  db.exec('DELETE FROM labels');
+  db.exec('DELETE FROM lists WHERE id != \'inbox\'');
+  db.exec('DELETE FROM task_dependencies');
+  db.exec('DELETE FROM time_entries');
+  saveDb();
+}
