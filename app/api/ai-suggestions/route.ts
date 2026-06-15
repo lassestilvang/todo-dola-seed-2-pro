@@ -6,7 +6,7 @@ export async function POST(request: Request) {
 
     if (prompt) {
       const task = generateTaskFromPrompt(prompt);
-      return Response.json({ task });
+      return Response.json({ data: { task } });
     }
 
     if (!taskName) {
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     const suggestions = getTaskSuggestions(taskName, description);
-    return Response.json({ suggestions });
+    return Response.json({ data: { suggestions } });
   } catch (error) {
     console.error('Failed to get AI suggestions:', error);
     return Response.json({ error: 'Failed to get suggestions' }, { status: 500 });
