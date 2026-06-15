@@ -47,11 +47,11 @@ export async function POST(request: Request) {
     )[0]?.values[0] as [string, number] | undefined;
 
     if (existing && existing[1] > lastModified) {
-      return Response.json({
+      return Response.json({ data: {
         conflict: true,
         serverData: JSON.parse(existing[0]),
         serverModified: existing[1],
-      });
+      }});
     }
 
     const now = Date.now();
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     );
     saveDb();
 
-    return Response.json({ success: true, lastModified: now });
+    return Response.json({ data: {success: true, lastModified: now} });
   } catch (error) {
     console.error('Sync failed:', error);
     return Response.json({ error: 'Sync failed' }, { status: 500 });
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
       });
     }
 
-    return Response.json({ data: null, lastModified: 0 });
+    return Response.json({ data: {data: null, lastModified: 0} });
   } catch (error) {
     console.error('Sync fetch failed:', error);
     return Response.json({ error: 'Sync fetch failed' }, { status: 500 });
