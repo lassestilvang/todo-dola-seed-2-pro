@@ -1,7 +1,8 @@
 import { initDb } from '@/lib/db';
-import { getTasks, generateRecurringTasks } from '@/lib/db/queries';
+import { getTasks, generateRecurringTasks, getRecurringCompletions, addRecurringCompletion } from '@/lib/db/queries';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST() {
+export const POST = async () => {
   try {
     await initDb();
 
@@ -12,30 +13,43 @@ export async function POST() {
 
     for (const task of recurringTasks) {
       if (task.recurringType && task.recurringConfig && task.date) {
-        const config = JSON.parse(task.recurringConfig);
-        const nextDate = task.date + (config.interval || 1) * getIntervalMs(config.type);
+        const existingCompletions = await getRecurringCompletions(task.id);
+        const completionSet = new Set(existingCompletions.map(c => c.completedAt));
 
-        // Generate if next occurrence is due
-        if (nextDate <= Date.now()) {
-          const newTasks = await generateRecurringTasks(task.id);
-          generatedCount += newTasks.length;
+        // Generate the next occurrence using the proper algorithm
+        const newTasks = await generateRecurringTasks(task.id);
+
+        for (const newTask of newTasks) {
+          // Only track completions for newly generated tasks
+          if (newTask.date && !completionSet.has(newTask.date)) {
+            await addRecurringCompletion(task.id, newTask.date);
+            generatedCount++;
+          }
         }
       }
     }
 
-    return Response.json({ generated: generatedCount });
+    return NextResponse.json({ data: { generated: generatedCount } });
   } catch (error) {
     console.error('Failed to generate recurring tasks:', error);
-    return Response.json({ error: 'Failed to generate recurring tasks' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to generate recurring tasks' }, { status: 500 });
   }
-}
+};
 
-function getIntervalMs(type: string): number {
-  switch (type) {
-    case 'daily': return 24 * 60 * 60 * 1000;
-    case 'weekly': return 7 * 24 * 60 * 60 * 1000;
-    case 'monthly': return 30 * 24 * 60 * 60 * 1000;
-    case 'yearly': return 365 * 24 * 60 * 60 * 1000;
-    default: return 24 * 60 * 60 * 1000;
+export const GET = async (request: NextRequest) => {
+  try {
+    await initDb();
+    const { searchParams } = new URL(request.url);
+    const taskId = searchParams.get('taskId');
+
+    if (!taskId) {
+      return NextResponse.json({ error: 'taskId is required' }, { status: 400 });
+    }
+
+    const completions = await getRecurringCompletions(taskId);
+    return NextResponse.json({ data: completions });
+  } catch (error) {
+    console.error('Failed to fetch recurring completions:', error);
+    return NextResponse.json({ error: 'Failed to fetch recurring completions' }, { status: 500 });
   }
-}
+};
