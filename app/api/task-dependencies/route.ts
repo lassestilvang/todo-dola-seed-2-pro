@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       taskName: row[3],
     })) || [];
 
-    return Response.json(dependencies);
+    return Response.json({ data: dependencies });
   } catch (error) {
     console.error('Failed to fetch dependencies:', error);
     return Response.json({ error: 'Failed to fetch dependencies' }, { status: 500 });
@@ -71,7 +71,7 @@ export async function POST(request: Request) {
     }
 
     const dependency = await addTaskDependency(taskId, dependsOnTaskId);
-    return Response.json(dependency, { status: 201 });
+    return Response.json({ data: dependency }, { status: 201 });
   } catch (error) {
     console.error('Failed to add dependency:', error);
     return Response.json({ error: 'Failed to add dependency' }, { status: 500 });
