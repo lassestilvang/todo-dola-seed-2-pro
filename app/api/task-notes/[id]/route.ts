@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return Response.json({ error: 'Note not found' }, { status: 404 });
     }
 
-    return Response.json(note);
+    return Response.json({ data: note });
   } catch (error) {
     console.error('Failed to fetch task note:', error);
     return Response.json({ error: 'Failed to fetch task note' }, { status: 500 });
@@ -31,7 +31,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     saveDb();
-    return Response.json(note);
+    return Response.json({ data: note });
   } catch (error) {
     console.error('Failed to update task note:', error);
     return Response.json({ error: 'Failed to update task note' }, { status: 500 });
