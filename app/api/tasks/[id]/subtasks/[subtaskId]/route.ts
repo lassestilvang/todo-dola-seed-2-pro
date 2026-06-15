@@ -46,7 +46,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return Response.json({ error: 'Subtask not found' }, { status: 404 });
     }
 
-    return Response.json({ id: subtask[0], name: subtask[1], completed: Boolean(subtask[2]) });
+    return Response.json({ data: { id: subtask[0], name: subtask[1], completed: Boolean(subtask[2]) } });
   } catch (error) {
     console.error('Failed to update subtask:', error);
     return Response.json({ error: 'Failed to update subtask' }, { status: 500 });
