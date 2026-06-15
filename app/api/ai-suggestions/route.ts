@@ -1,12 +1,22 @@
-import { getTaskSuggestions, generateTaskFromPrompt } from '@/lib/utils/ai-suggestions';
+import {
+  getTaskSuggestions,
+  generateTaskFromPrompt,
+  parseNaturalLanguageTask,
+} from '@/lib/utils/ai-suggestions';
 
 export async function POST(request: Request) {
   try {
     const { taskName, description, prompt } = await request.json();
 
     if (prompt) {
-      const task = generateTaskFromPrompt(prompt);
-      return Response.json({ data: { task } });
+      const parsed = parseNaturalLanguageTask(prompt);
+      return Response.json({
+        data: {
+          task: parsed.task,
+          confidence: parsed.confidence,
+          warnings: parsed.warnings,
+        },
+      });
     }
 
     if (!taskName) {
