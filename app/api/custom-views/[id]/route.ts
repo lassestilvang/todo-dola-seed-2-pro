@@ -9,7 +9,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!view) {
       return Response.json({ error: 'Custom view not found' }, { status: 404 });
     }
-    return Response.json(view);
+    return Response.json({ data: view });
   } catch (error) {
     console.error('Failed to fetch custom view:', error);
     return Response.json({ error: 'Failed to fetch custom view' }, { status: 500 });
@@ -26,7 +26,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!view) {
       return Response.json({ error: 'Custom view not found' }, { status: 404 });
     }
-    return Response.json(view);
+    return Response.json({ data: view });
   } catch (error) {
     console.error('Failed to update custom view:', error);
     return Response.json({ error: 'Failed to update custom view' }, { status: 500 });
