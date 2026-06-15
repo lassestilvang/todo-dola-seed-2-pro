@@ -13,6 +13,7 @@ import AttachmentUpload from '@/components/tasks/AttachmentUpload';
 import CommentSection from '@/components/tasks/CommentSection';
 import ShareManager from '@/components/tasks/ShareManager';
 import TaskTemplates from '@/components/tasks/TaskTemplates';
+import TaskReminders from '@/components/tasks/TaskReminders';
 import type { Task } from '@/lib/types';
 
 interface TaskHistoryEntry {
@@ -199,6 +200,8 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
       <SubtaskList taskId={task.id} initialSubtasks={task.subtasks || []} />
 
       <TimeTracker taskId={task.id} initialTime={task.actualTime || 0} />
+
+      <TaskReminders task={task} />
 
       <TaskNotes taskId={task.id} initialNotes={notes} />
 
