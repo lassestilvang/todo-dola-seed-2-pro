@@ -2,6 +2,7 @@ import { getTasks, getLabels, getLists } from '@/lib/db/queries';
 import { format } from 'date-fns';
 import { Clock, AlertCircle, CheckCircle, TrendingUp, Calendar, Tag, BarChart3, PieChart, Activity, TrendingDown, Target, Zap, Award, TrendingDown as TrendingDownIcon } from 'lucide-react';
 import Link from 'next/link';
+import TimeSeriesAnalytics from '@/components/analytics/TimeSeriesAnalytics';
 
 // Simple Bar Chart Component
 function BarChart({ data }: { data: { label: string; value: number; color: string }[] }) {
@@ -345,6 +346,8 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <TimeSeriesAnalytics tasks={allTasks} />
     </div>
   );
 }
