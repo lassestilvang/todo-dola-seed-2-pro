@@ -7,7 +7,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const { id } = await params;
 
     const history = await getTaskHistory(id);
-    return Response.json(history);
+    return Response.json({ data: history });
   } catch (error) {
     console.error('Failed to fetch task history:', error);
     return Response.json({ error: 'Failed to fetch task history' }, { status: 500 });
