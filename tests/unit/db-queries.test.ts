@@ -44,6 +44,14 @@ import {
   updateCustomView,
   deleteCustomView,
   setDefaultCustomView,
+  createWorkspace,
+  getWorkspaces,
+  getWorkspaceById,
+  updateWorkspace,
+  deleteWorkspace,
+  addWorkspaceMember,
+  getWorkspaceMembers,
+  removeWorkspaceMember,
 } from '@/lib/db/queries';
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
@@ -54,7 +62,7 @@ const dbPath = join(process.cwd(), 'db', 'planner.db');
 async function cleanDb() {
   const db = await initDb();
   const tables = [
-    'task_history', 'template_labels', 'task_templates', 'subtasks',
+    'habit_completions', 'habits', 'task_history', 'template_labels', 'task_templates', 'subtasks',
     'task_labels', 'tasks', 'labels', 'task_dependencies',
     'time_entries', 'comments', 'task_notes', 'custom_views',
     'shared_tasks', 'recurring_exceptions'
@@ -703,6 +711,106 @@ describe('Database Queries', () => {
       await removeRecurringException(task.id, exceptionDate);
       const exceptions = await getRecurringExceptions(task.id);
       expect(exceptions).toEqual([]);
+    });
+  });
+
+  describe('Task Extended Fields', () => {
+    it('creates a task with default values for missing fields', async () => {
+      const task = await createTask({ name: 'Test Task', listId: 'inbox' });
+      expect(task).toHaveProperty('id');
+      expect(task.name).toBe('Test Task');
+      expect(task.sortOrder).toBeDefined();
+      expect(task.createdAt).toBeDefined();
+      expect(task.updatedAt).toBeDefined();
+    });
+
+    it('fetches task with recurring exceptions', async () => {
+      const task = await createTask({ name: 'Recurring Task' });
+      const { addRecurringException, getTaskById } = await import('@/lib/db/queries');
+      await addRecurringException(task.id, Date.now() + 86400000);
+
+      const fetched = await getTaskById(task.id);
+      expect(fetched).not.toBeNull();
+      expect(fetched?.recurringExceptions).toBeDefined();
+      expect(Array.isArray(fetched?.recurringExceptions)).toBe(true);
+    });
+
+    it('returns empty arrays for missing optional fields in fetched task', async () => {
+      const task = await createTask({ name: 'Simple Task', listId: 'inbox' });
+      const { getTaskById } = await import('@/lib/db/queries');
+      const fetched = await getTaskById(task.id);
+      expect(fetched).not.toBeNull();
+      expect(fetched?.labels).toEqual([]);
+      expect(fetched?.subtasks).toEqual([]);
+      expect(fetched?.customFields).toEqual([]);
+      expect(fetched?.recurringExceptions).toEqual([]);
+    });
+  });
+
+  describe('Workspaces', () => {
+    it('creates a workspace', async () => {
+      const workspace = await createWorkspace({
+        name: 'Test Workspace',
+        description: 'Test Description',
+        createdBy: 'user-1',
+      });
+      expect(workspace).toHaveProperty('id');
+      expect(workspace.name).toBe('Test Workspace');
+      expect(workspace.description).toBe('Test Description');
+    });
+
+    it('fetches workspaces', async () => {
+      await createWorkspace({ name: 'Workspace 1' });
+      await createWorkspace({ name: 'Workspace 2' });
+      const workspaces = await getWorkspaces();
+      expect(workspaces.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('gets workspace by id', async () => {
+      const created = await createWorkspace({ name: 'Find Me' });
+      const workspace = await getWorkspaceById(created.id);
+      expect(workspace).not.toBeNull();
+      expect(workspace?.name).toBe('Find Me');
+    });
+
+    it('updates a workspace', async () => {
+      const created = await createWorkspace({ name: 'Original' });
+      const updated = await updateWorkspace(created.id, { name: 'Updated' });
+      expect(updated?.name).toBe('Updated');
+    });
+
+    it('deletes a workspace', async () => {
+      const created = await createWorkspace({ name: 'To Delete' });
+      const success = await deleteWorkspace(created.id);
+      expect(success).toBe(true);
+      const deleted = await getWorkspaceById(created.id);
+      expect(deleted).toBeNull();
+    });
+  });
+
+  describe('Workspace Members', () => {
+    it('adds a member to workspace', async () => {
+      const workspace = await createWorkspace({ name: 'Test' });
+      const member = await addWorkspaceMember(workspace.id, 'user-1', 'editor');
+      expect(member.workspaceId).toBe(workspace.id);
+      expect(member.userId).toBe('user-1');
+      expect(member.role).toBe('editor');
+    });
+
+    it('fetches workspace members', async () => {
+      const workspace = await createWorkspace({ name: 'Test' });
+      await addWorkspaceMember(workspace.id, 'user-1', 'editor');
+      await addWorkspaceMember(workspace.id, 'user-2', 'viewer');
+      const members = await getWorkspaceMembers(workspace.id);
+      expect(members.length).toBe(2);
+    });
+
+    it('removes a member from workspace', async () => {
+      const workspace = await createWorkspace({ name: 'Test' });
+      await addWorkspaceMember(workspace.id, 'user-1', 'editor');
+      await removeWorkspaceMember(workspace.id, 'user-1');
+      const members = await getWorkspaceMembers(workspace.id);
+      expect(members.length).toBe(0);
     });
   });
 });
