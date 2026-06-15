@@ -46,7 +46,7 @@ export async function GET() {
       ORDER BY name
     `);
 
-    if (!result || result.length === 0) return Response.json([]);
+    if (!result || result.length === 0) return Response.json({ data: [] });
 
     const fields = result[0].values.map((row: unknown[]) => {
       const [id, name, type, options, createdAt, updatedAt] = row as [string, string, string, string | null, number, number];
@@ -60,7 +60,7 @@ export async function GET() {
       } satisfies CustomField;
     });
 
-    return Response.json(fields);
+    return Response.json({ data: fields });
   } catch (error) {
     console.error('Failed to fetch custom fields:', error);
     return Response.json({ error: 'Failed to fetch custom fields' }, { status: 500 });
@@ -92,14 +92,14 @@ export async function POST(request: Request) {
 
     saveDb();
 
-    return Response.json({
+    return Response.json({ data: {
       id,
       name,
       type: type as 'text' | 'number' | 'date' | 'boolean' | 'select',
       options: options || [],
       createdAt: now,
       updatedAt: now,
-    }, { status: 201 });
+    }}, { status: 201 });
   } catch (error) {
     console.error('Failed to create custom field:', error);
     return Response.json({ error: 'Failed to create custom field' }, { status: 500 });
