@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     }
 
     const notes = await getTaskNotes(taskId);
-    return Response.json(notes);
+    return Response.json({ data: notes });
   } catch (error) {
     console.error('Failed to fetch task notes:', error);
     return Response.json({ error: 'Failed to fetch task notes' }, { status: 500 });
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     const note = await createTaskNote(taskId, content, title);
     saveDb();
-    return Response.json(note, { status: 201 });
+    return Response.json({ data: note }, { status: 201 });
   } catch (error) {
     console.error('Failed to create task note:', error);
     return Response.json({ error: 'Failed to create task note' }, { status: 500 });
