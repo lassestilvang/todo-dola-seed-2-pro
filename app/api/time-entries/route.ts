@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     saveDb();
 
-    return Response.json({ id, taskId, duration, description, startedAt: now, endedAt: null, createdAt: now }, { status: 201 });
+    return Response.json({ data: { id, taskId, duration, description, startedAt: now, endedAt: null, createdAt: now } }, { status: 201 });
   } catch (error) {
     console.error('Failed to create time entry:', error);
     return Response.json({ error: 'Failed to create time entry' }, { status: 500 });
@@ -61,7 +61,7 @@ export async function GET(request: Request) {
 
     const result = db.exec(query, params as never[]);
     if (!result || result.length === 0) {
-      return Response.json([]);
+      return Response.json({ data: [] });
     }
 
     const columns = result[0].columns;
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
       return obj;
     });
 
-    return Response.json(entries);
+    return Response.json({ data: entries });
   } catch (error) {
     console.error('Failed to fetch time entries:', error);
     return Response.json({ error: 'Failed to fetch time entries' }, { status: 500 });
