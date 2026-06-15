@@ -184,3 +184,126 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+/* Print styles for task lists */
+@media print {
+  body {
+    background: white;
+    color: black;
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .task-list {
+    max-width: 100%;
+  }
+
+  .task-card {
+    border: 1px solid #ccc;
+    page-break-inside: avoid;
+    margin-bottom: 12pt;
+    padding: 8pt;
+  }
+
+  .task-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4pt;
+  }
+
+  .task-title {
+    font-weight: bold;
+    font-size: 14pt;
+  }
+
+  .task-status {
+    width: 18pt;
+    height: 18pt;
+    border: 2px solid #333;
+    border-radius: 50%; display: inline-block;
+  }
+
+  .task-status.completed {
+    background: #333;
+  }
+
+  .task-details {
+    font-size: 10pt;
+    color: #555;
+  }
+
+  .task-due-date {
+    margin-top: 4pt;
+    font-style: italic;
+  }
+
+  .task-labels {
+    margin-top: 6pt;
+  }
+
+  .label-badge {
+    display: inline-block;
+    padding: 2pt 6pt;
+    border: 1px solid #999;
+    border-radius: 3pt;
+    font-size: 9pt;
+    margin-right: 4pt;
+  }
+
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+  }
+}
+
+/* Mobile-specific improvements */
+@media (max-width: 640px) {
+  /* Larger touch targets */
+  button, input, textarea, select {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  /* Mobile-friendly layouts */
+  .task-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Bottom navigation space */
+  .content-with-bottom-nav {
+    padding-bottom: 80px;
+  }
+
+  /* Swipeable card actions */
+  .swipeable-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .swipeable-card-actions {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Mobile keyboard avoid */  .keyboard-avoiding-view {
+    flex: 1;
+  }
+}
