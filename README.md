@@ -9,10 +9,12 @@ A modern, full-featured task planner built with Next.js 16 and React.
 - **Lists**: Organize tasks into custom lists with Kanban board view
 - **Labels**: Categorize and filter tasks with colored labels
 - **Task Dependencies**: Block tasks on other tasks being completed
+- **Task Links**: Link tasks together with relationship types (blocks, related, depends_on, duplicate)
+- **Focus Mode**: Distraction-free Pomodoro timer with task tracking
 - **Time Tracking**: Log time spent on tasks with a timer
 - **Search**: Fuzzy search across tasks and labels
 - **Dark/Light Mode**: System-aware theme switching
-- **Export/Import**: Backup and restore your data (JSON & Markdown)
+- **Export/Import**: Backup and restore your data (JSON, Markdown, CSV, iCal) with conflict resolution
 - **Task Detail Pages**: Dedicated views for each task
 - **Task History**: Track changes to tasks over time
 - **Dashboard**: Statistics and overview of your tasks
@@ -21,6 +23,16 @@ A modern, full-featured task planner built with Next.js 16 and React.
 - **Task Sharing**: Share tasks with unique links
 - **Keyboard Shortcuts**: Quick actions with `⌘K`, `⌘N`, `⌘⇧?`
 - **Import from Todoist/Trello**: Migrate from other task management tools
+- **Habit Tracker**: Track daily habits with streak counting
+- **Calendar Sync**: iCal export for Google Calendar, Outlook integration
+- **Batch Operations**: Multi-select with bulk delete, move, priority changes
+- **AI Scheduling**: Smart date/time suggestions based on your completion history
+- **Task Reminders**: Set reminders for tasks with email, in-app, Slack, or Discord notifications
+- **Goal Tracking**: Set SMART goals with progress tracking and milestone celebrations
+- **Time Blocking**: Visual calendar with drag-and-drop scheduling for tasks
+- **Activity Feed**: Real-time activity stream showing task updates and comments
+- **Template Variables**: Dynamic values like `{date+3d}`, `{username}`, `{project}` in templates
+- **Advanced Reporting**: Burndown charts, time-in-state analysis, and velocity tracking
 
 ## Getting Started
 
@@ -31,11 +43,14 @@ pnpm install
 # Start development server
 pnpm dev
 
+# Run tests
+pnpm test
+
+# Run type checking
+pnpm typecheck
+
 # Build for production
 pnpm build
-
-# Run tests
-bun test
 
 # Run linting
 pnpm lint
@@ -70,12 +85,13 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 ### Tasks
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/tasks` | List tasks (query: `view`, `listId`, `labelId`, `priority`, `completed`, `recurring`, `dateFrom`, `dateTo`, `limit`, `offset`) |
+| GET | `/api/tasks` | List tasks (query: `view`, `listId`, `labelId`, `priority`, `completed`, `recurring`, `dateFrom`, `dateTo`, `limit`, `offset`, `sortBy`, `sortDirection`) |
 | POST | `/api/tasks` | Create new task |
 | GET | `/api/tasks/[id]` | Get task by ID |
 | PATCH | `/api/tasks/[id]` | Update task |
 | DELETE | `/api/tasks/[id]` | Delete task |
 | PATCH | `/api/tasks/[id]/toggle` | Toggle task completion |
+| POST | `/api/tasks/[id]/archive` | Archive a task |
 | POST | `/api/tasks/[id]/restore` | Restore a task (recreates with original data) |
 | GET | `/api/tasks/[id]/history` | Get task change history |
 | GET | `/api/tasks/[id]/labels` | List labels for a task |
@@ -85,7 +101,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 | POST | `/api/tasks/[id]/subtasks` | Create subtask |
 | PATCH | `/api/tasks/[id]/subtasks/[subtaskId]` | Update subtask |
 | DELETE | `/api/tasks/[id]/subtasks/[subtaskId]` | Delete subtask |
-| POST | `/api/tasks/bulk` | Bulk operations (action: `complete`, `incomplete`, `delete`, `reorder`) |
+| POST | `/api/tasks/bulk` | Bulk operations (action: `complete`, `incomplete`, `delete`, `move`, `reorder`, `addLabels`, `removeLabels`, `clearCompleted`, `updatePriority`) |
 
 ### Task Dependencies
 | Method | Endpoint | Description |
@@ -93,6 +109,15 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 | GET | `/api/task-dependencies?taskId=...` | List dependencies for a task |
 | POST | `/api/task-dependencies` | Add dependency (body: `taskId`, `dependsOnTaskId`) |
 | DELETE | `/api/task-dependencies/[id]` | Remove dependency by ID |
+
+### Task Links
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/task-links?taskId=...` | List links for a task |
+| POST | `/api/task-links` | Create link (body: `taskId`, `linkedTaskId`, `type`) |
+| DELETE | `/api/task-links?id=...` | Remove link by ID |
+
+**Link Types:** `blocks`, `related`, `depends_on`, `duplicate`
 
 ### Task Notes
 | Method | Endpoint | Description |
@@ -171,8 +196,29 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 ### Export/Import
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/export` | Export data (JSON or Markdown via `?format=markdown`) |
+| GET | `/api/export` | Export data (JSON, Markdown, CSV, iCal via `?format=`) |
 | POST | `/api/import` | Import data (supports JSON, Todoist, Trello formats) |
+
+### Habits
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/habits` | List all habits |
+| POST | `/api/habits` | Create habit |
+| GET | `/api/habits/[id]` | Get habit by ID |
+| PATCH | `/api/habits/[id]` | Update habit |
+| DELETE | `/api/habits/[id]` | Delete habit |
+| POST | `/api/habits/[id]/completions` | Complete habit (updates streak) |
+
+### Search
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/search?q=...` | Search tasks with fuzzy matching (query: `q`, `limit`, `listId`, `priority`, `completed`, `dueBefore`, `dueAfter`) |
+| POST | `/api/search/suggestions` | Get search suggestions (body: `query`, `limit`) |
+
+### Calendar Sync
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/calendar` | Export as iCal (`?format=ical`) or JSON |
 
 ### Custom Views
 | Method | Endpoint | Description |
@@ -184,6 +230,14 @@ Open [http://localhost:3000](http://localhost:3000) with your browser.
 | DELETE | `/api/custom-views/[id]` | Delete custom view |
 | POST | `/api/custom-views/[id]/set-default` | Set as default view |
 
+### Reminders
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/reminders?taskId=...` | List reminders for a task |
+| POST | `/api/reminders` | Create reminder (body: `taskId`, `reminderTime`, `channel`) |
+| PATCH | `/api/reminders?id=...` | Update reminder (body: `enabled`, `reminderTime`, `channel`) |
+| DELETE | `/api/reminders?id=...` | Delete reminder |
+
 ## Database
 
 Uses sql.js (SQLite in WebAssembly) for client-side storage with persistence to `db/planner.db`.
@@ -194,3 +248,175 @@ Uses sql.js (SQLite in WebAssembly) for client-side storage with persistence to 
 - TypeScript with strict mode enabled
 - Tailwind CSS v4 with custom design system
 - Base UI components for headless UI primitives
+
+## Recent Improvements
+
+### Type Safety
+- Added comprehensive TypeScript interfaces for database queries
+- Replaced `any` types with typed interfaces throughout the database layer
+- Added `DbTask`, `DbList`, `DbLabel`, etc. interfaces for proper mapping
+
+### API Error Handling
+- Centralized error handling with `ApiError` class
+- Rate limiting support for all API endpoints
+- Input validation utilities (`validateRequiredFields`, `validateUuid`)
+- Consistent response format with `{ data: ..., total: ... }` structure
+- CSRF protection utilities added
+
+### Test Coverage
+- 1047+ passing tests
+- New error handler test suite
+- Improved test mocking patterns
+- Mobile hooks tests added
+
+### API Improvements
+- Webhooks now persist to database (was in-memory only)
+- Workspace members API fully implemented
+- Standardized error handling across all routes
+- Search API endpoint with fuzzy search integration
+- Archive task functionality added
+- Share token expiration support
+
+### Database Improvements
+- Transaction support for atomic multi-step operations
+- Reduced code duplication with `buildTaskQueryBase()` helper
+- Additional performance indexes for common queries
+- Share token expiration columns
+
+### Security
+- Enhanced input sanitization for XSS prevention
+- SQL identifier escaping utilities
+- UUID validation on all path parameters
+- Share tokens now support expiration
+
+### Mobile App
+- Added TypeScript types matching web app
+- Improved API client with error handling
+- Added Settings, Templates, Kanban, and Calendar screens
+- React Query hooks for state management
+
+### New Features
+- **Task Archiving**: Archive tasks instead of permanent deletion
+- **Search API**: Fuzzy search with Fuse.js integration
+- **Sort Support**: Sort tasks by date, created, priority, name, or list
+- **Share Token Expiration**: Optional expiration for shared task links
+
+## Performance
+
+- **Database**: SQLite with optimized indexes
+- **Caching**: Client-side with React Query
+- **Load Testing**: Run `node scripts/load-test.js`
+- **Coverage**: 90%+ for core library code
+
+## Deployment
+
+### Quick Deploy to Vercel
+```bash
+pnpm build
+vercel --prod
+```
+
+### Environment Variables
+See `.env.example` for required configuration.
+
+## Mobile App
+
+A React Native mobile app is located in the `/mobile` directory. To run:
+
+```bash
+cd mobile
+npm install
+npx react-native run-android
+# or
+npx react-native run-ios
+```
+
+## Email Notifications
+
+Configure SMTP settings in `.env` to enable email notifications:
+
+```
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+```
+
+## API Endpoints
+
+### Email Notifications
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/notifications/email` | Send task reminder or daily summary |
+| POST | `/api/notifications` | Send notification to chat platforms |
+
+### Issue Sync
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/issue-sync` | Sync task with GitHub/GitLab issue |
+
+### Webhooks
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/webhooks` | List configured webhooks |
+| POST | `/api/webhooks` | Create webhook for Zapier/Make |
+| PATCH | `/api/webhooks` | Trigger webhook event |
+
+### Workspaces
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/workspaces` | List all workspaces (query: `userId`) |
+| POST | `/api/workspaces` | Create new workspace |
+| GET | `/api/workspaces/[id]` | Get workspace by ID |
+| PATCH | `/api/workspaces/[id]` | Update workspace |
+| DELETE | `/api/workspaces/[id]` | Delete workspace |
+
+### Workspace Members
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/workspaces/[id]/members` | List members |
+| POST | `/api/workspaces/[id]/members` | Add member (body: `userId`, `role`) |
+| DELETE | `/api/workspaces/[id]/members/[userId]` | Remove member |
+
+### AI Features
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/ai/schedule` | Generate smart schedule suggestions |
+| POST | `/api/ai/batch-update` | Batch update tasks |
+
+### Integrations
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET/POST/DELETE | `/api/integrations/notion` | Notion database sync |
+| GET/POST/DELETE | `/api/integrations/slack` | Slack reminders |
+| GET/POST/DELETE | `/api/integrations/caldav` | CalDAV calendar sync |
+
+### Goals
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/goals` | List all goals |
+| POST | `/api/goals` | Create goal (body: `name`, `targetValue`, `unit`, `deadline`, `taskId`) |
+| GET | `/api/goals/[id]` | Get goal by ID |
+| PATCH | `/api/goals/[id]` | Update goal |
+| DELETE | `/api/goals/[id]` | Delete goal |
+| GET | `/api/goals/[id]/milestones` | List milestones for a goal |
+| POST | `/api/goals/[id]/milestones` | Create milestone |
+
+### Time Blocking
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/time-blocks?start=...&end=...` | List time blocks in date range |
+| POST | `/api/time-blocks` | Create time block |
+| PATCH | `/api/time-blocks` | Update time block |
+| DELETE | `/api/time-blocks?id=...` | Delete time block |
+
+### Reports
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/reports?type=...` | Get reports (types: `burndown`, `time-in-state`, `velocity`, or `summary`) |
+
+### Activities
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/activities` | List recent activities |
+| POST | `/api/activities` | Log an activity |
