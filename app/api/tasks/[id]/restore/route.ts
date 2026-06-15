@@ -47,7 +47,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       updatedAt: now,
     };
 
-    return Response.json(restored, { status: 201 });
+    return Response.json({ data: restored }, { status: 201 });
   } catch (error) {
     console.error('Failed to restore task:', error);
     return Response.json({ error: 'Failed to restore task' }, { status: 500 });
