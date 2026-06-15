@@ -9,6 +9,7 @@ A modern, full-featured task planner built with Next.js 16 and React.
 - **Lists**: Organize tasks into custom lists with Kanban board view
 - **Labels**: Categorize and filter tasks with colored labels
 - **Task Dependencies**: Block tasks on other tasks being completed
+- **Natural Language Tasks**: Type "Call Mom tomorrow at 3pm" and auto-parse into structured tasks
 - **Task Links**: Link tasks together with relationship types (blocks, related, depends_on, duplicate)
 - **Focus Mode**: Distraction-free Pomodoro timer with task tracking
 - **Time Tracking**: Log time spent on tasks with a timer
@@ -300,6 +301,7 @@ Uses sql.js (SQLite in WebAssembly) for client-side storage with persistence to 
 - **Search API**: Fuzzy search with Fuse.js integration
 - **Sort Support**: Sort tasks by date, created, priority, name, or list
 - **Share Token Expiration**: Optional expiration for shared task links
+- **Natural Language Task Creation**: Parse text like "Buy milk tomorrow at 3pm" into structured tasks with date, priority, labels, and more
 
 ## Performance
 
