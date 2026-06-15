@@ -5,7 +5,7 @@ export async function GET() {
   try {
     await initDb();
     const views = await getCustomViews();
-    return Response.json(views);
+    return Response.json({ data: views });
   } catch (error) {
     console.error('Failed to fetch custom views:', error);
     return Response.json({ error: 'Failed to fetch custom views' }, { status: 500 });
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
       isDefault: body.isDefault || false,
     });
 
-    return Response.json(view, { status: 201 });
+    return Response.json({ data: view }, { status: 201 });
   } catch (error) {
     console.error('Failed to create custom view:', error);
     return Response.json({ error: 'Failed to create custom view' }, { status: 500 });
