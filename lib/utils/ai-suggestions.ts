@@ -500,13 +500,23 @@ export function parseNaturalLanguageTask(input: string): NaturalLanguageParseRes
 export function generateTaskFromPrompt(prompt: string): Partial<Task> {
   const { task } = parseNaturalLanguageTask(prompt);
 
+  // Convert label strings to Label objects
+  const labels: import('@/lib/types').Label[] = task.labels.map(label => ({
+    id: label,
+    name: label,
+    emoji: '',
+    color: '#6b7280',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }));
+
   return {
     name: task.name,
     description: task.description,
     date: task.date,
     priority: task.priority,
     estimate: task.estimate,
-    labels: task.labels,
-    listId: task.listId,
+    labels,
+    listId: task.listId ?? undefined,
   };
 }
