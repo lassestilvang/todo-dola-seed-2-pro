@@ -1,5 +1,5 @@
 import { initDb, saveDb } from '@/lib/db';
-import { getComments, createComment, updateComment, deleteComment } from '@/lib/db/queries';
+import { getComments, createComment, updateComment, deleteComment, createActivity } from '@/lib/db/queries';
 
 export async function GET(request: Request) {
   try {
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     }
 
     const comments = await getComments(taskId);
-    return Response.json(comments);
+    return Response.json({ data: comments });
   } catch (error) {
     console.error('Failed to fetch comments:', error);
     return Response.json({ error: 'Failed to fetch comments' }, { status: 500 });
@@ -29,8 +29,18 @@ export async function POST(request: Request) {
     }
 
     const comment = await createComment(taskId, content, author);
+
+    // Log activity
+    await createActivity({
+      type: 'comment_added',
+      taskId,
+      userId: author || null,
+      userName: author || null,
+      details: content.substring(0, 100),
+    });
+
     saveDb();
-    return Response.json(comment, { status: 201 });
+    return Response.json({ data: comment }, { status: 201 });
   } catch (error) {
     console.error('Failed to create comment:', error);
     return Response.json({ error: 'Failed to create comment' }, { status: 500 });
