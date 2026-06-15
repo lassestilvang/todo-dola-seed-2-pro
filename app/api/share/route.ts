@@ -13,10 +13,10 @@ export async function GET(request: Request) {
 
     const shareInfo = await getSharedTask(taskId);
     if (!shareInfo) {
-      return Response.json(null);
+      return Response.json({ data: null });
     }
 
-    return Response.json(shareInfo);
+    return Response.json({ data: shareInfo });
   } catch (error) {
     console.error('Failed to get share info:', error);
     return Response.json({ error: 'Failed to get share info' }, { status: 500 });
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     const shareToken = await createShareToken(taskId, sharedBy);
-    return Response.json({ shareToken }, { status: 201 });
+    return Response.json({ data: { shareToken } }, { status: 201 });
   } catch (error) {
     console.error('Failed to create share token:', error);
     return Response.json({ error: 'Failed to create share token' }, { status: 500 });
