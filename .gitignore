@@ -6,3 +6,4 @@ coverage
 playwright/.cache
 playwright/report.json
 backups
+tsconfig.tsbuildinfo
