@@ -1,4 +1,7 @@
-import { initDb, getDb } from '@/lib/db';
+import { initDb, getDb, saveDb } from '@/lib/db';
+import { getTasks, getLabels, getLists } from '@/lib/db/queries';
+import { withErrorHandling, withRateLimit } from '@/lib/api/handler';
+import { randomUUID } from 'crypto';
 
 type ExportData = Record<string, Record<string, unknown>[]>;
 
@@ -104,12 +107,155 @@ function generateIcs(tasks: any[], lists: any[], labels: any[]): string {
   return icsLines.join('\r\n');
 }
 
+// Conflict resolution strategies
+type ConflictStrategy = 'skip' | 'rename' | 'overwrite';
+
+function resolveNameConflict(name: string, existingNames: Set<string>): string {
+  let newName = name;
+  let counter = 1;
+  while (existingNames.has(newName)) {
+    newName = `${name} (${counter})`;
+    counter++;
+  }
+  return newName;
+}
+
+async function importData(data: ExportData, strategy: ConflictStrategy = 'skip'): Promise<{ success: boolean; imported: number; skipped: number }> {
+  await initDb();
+  const db = getDb();
+  if (!db) throw new Error('Database not initialized');
+
+  let imported = 0;
+  let skipped = 0;
+
+  // Get existing names for conflict resolution
+  const existingLists = await getLists();
+  const existingListNames = new Set(existingLists.map(l => l.name));
+
+  // Import lists first
+  const listIdMap = new Map<string, string>();
+  for (const list of data.lists || []) {
+    if (strategy === 'skip') {
+      if (existingListNames.has(list.name as string)) {
+        skipped++;
+        continue;
+      }
+    }
+    if (strategy === 'rename' && existingListNames.has(list.name as string)) {
+      const newName = resolveNameConflict(list.name as string, existingListNames);
+      const id = randomUUID();
+      db.exec('INSERT INTO lists (id, name, emoji, color, is_inbox, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, 0, 0, ?, ?)',
+        [id, newName, list.emoji, list.color, Date.now(), Date.now()] as (string | number | null)[]);
+      listIdMap.set(list.id as string, id);
+      imported++;
+    }
+  }
+
+  // Import labels
+  const labelIdMap = new Map<string, string>();
+  const existingLabels = await getLabels();
+  const existingLabelNames = new Set(existingLabels.map(l => l.name));
+
+  for (const label of data.labels || []) {
+    if (strategy === 'skip' && existingLabelNames.has(label.name as string)) {
+      skipped++;
+      continue;
+    }
+    const id = randomUUID();
+    db.exec('INSERT INTO labels (id, name, emoji, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, label.name, label.emoji, label.color, Date.now(), Date.now()] as (string | number | null)[]);
+    labelIdMap.set(label.id as string, id);
+    imported++;
+  }
+
+  // Import tasks
+  for (const task of data.tasks || []) {
+    const id = randomUUID();
+    const listId = listIdMap.get(task.list_id as string) || task.list_id;
+    const now = Date.now();
+
+    db.exec(
+      'INSERT INTO tasks (id, list_id, name, description, date, deadline, reminder, estimate, actual_time, priority, created_at, updated_at, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, listId, task.name, task.description, task.date, task.deadline, task.reminder, task.estimate, task.actual_time, task.priority, now, now, 0] as (string | number | null)[]
+    );
+
+    // Import task-labels
+    if (task.labels) {
+      const parsedLabels = JSON.parse(task.labels as string);
+      for (const labelId of parsedLabels.map((l: any) => labelIdMap.get(l.id) || l.id)) {
+        db.exec('INSERT OR IGNORE INTO task_labels (task_id, label_id) VALUES (?, ?)', [id, labelId]);
+      }
+    }
+
+    imported++;
+  }
+
+  saveDb();
+  return { success: true, imported, skipped };
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const format = searchParams.get('format') || 'json';
 
     await initDb();
+
+    if (format === 'markdown') {
+      const tasks = await getTasks({});
+      const lists = await getLists();
+      const labels = await getLabels();
+      const markdown = generateMarkdown(tasks as any, lists, labels);
+
+      return new Response(markdown, {
+        headers: {
+          'Content-Type': 'text/markdown',
+          'Content-Disposition': 'attachment; filename=tasks.md',
+        },
+      });
+    }
+
+    if (format === 'pdf') {
+      const tasks = await getTasks({});
+      const lists = await getLists();
+      const labels = await getLabels();
+
+      return Response.json({
+        success: true,
+        data: { tasks, lists, labels },
+        message: 'Use the ExportImport component to download PDF',
+      });
+    }
+
+    if (format === 'csv') {
+      const tasks = await getTasks({});
+      const lists = await getLists();
+      const labels = await getLabels();
+      const csv = generateCsv(tasks as any, lists, labels);
+
+      return new Response(csv, {
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': 'attachment; filename=tasks.csv',
+        },
+      });
+    }
+
+    if (format === 'ics') {
+      const tasks = await getTasks({});
+      const lists = await getLists();
+      const labels = await getLabels();
+      const ics = generateIcs(tasks as any, lists, labels);
+
+      return new Response(ics, {
+        headers: {
+          'Content-Type': 'text/calendar',
+          'Content-Disposition': 'attachment; filename=tasks.ics',
+        },
+      });
+    }
+
+    // Default JSON export
     const db = getDb();
     if (!db) throw new Error('Database not initialized');
 
@@ -132,67 +278,23 @@ export async function GET(request: Request) {
       }
     }
 
-    if (format === 'markdown') {
-      const tasks = data.tasks || [];
-      const lists = data.lists || [];
-      const labels = data.labels || [];
-      const markdown = generateMarkdown(tasks, lists, labels);
-
-      return new Response(markdown, {
-        headers: {
-          'Content-Type': 'text/markdown',
-          'Content-Disposition': 'attachment; filename=tasks.md',
-        },
-      });
-    }
-
-    if (format === 'pdf') {
-      // Generate a proper PDF file using the browser API
-      // This endpoint returns JSON with the data needed for client-side PDF generation
-      const tasks = data.tasks || [];
-      const lists = data.lists || [];
-      const labels = data.labels || [];
-
-      return Response.json({
-        success: true,
-        data: { tasks, lists, labels },
-        message: 'Use the ExportImport component to download PDF',
-      });
-    }
-
-    if (format === 'csv') {
-      const tasks = data.tasks || [];
-      const lists = data.lists || [];
-      const labels = data.labels || [];
-      const csv = generateCsv(tasks, lists, labels);
-
-      return new Response(csv, {
-        headers: {
-          'Content-Type': 'text/csv',
-          'Content-Disposition': 'attachment; filename=tasks.csv',
-        },
-      });
-    }
-
-    if (format === 'ics') {
-      const tasks = data.tasks || [];
-      const lists = data.lists || [];
-      const labels = data.labels || [];
-      const ics = generateIcs(tasks, lists, labels);
-
-      return new Response(ics, {
-        headers: {
-          'Content-Type': 'text/calendar',
-          'Content-Disposition': 'attachment; filename=tasks.ics',
-        },
-      });
-    }
-
-    return new Response(JSON.stringify(data, null, 2), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return Response.json({ data });
   } catch (error) {
     console.error('Failed to export:', error);
     return Response.json({ error: 'Failed to export' }, { status: 500 });
   }
 }
+
+// POST /api/export -> Import data with conflict resolution
+export const POST = withErrorHandling(withRateLimit()(async (request: Request) => {
+  await initDb();
+  const body = await request.json();
+  const { data, strategy } = body;
+
+  if (!data) {
+    throw new Error('No data provided for import');
+  }
+
+  const result = await importData(data, (strategy as ConflictStrategy) || 'skip');
+  return Response.json({ data: result });
+}));
