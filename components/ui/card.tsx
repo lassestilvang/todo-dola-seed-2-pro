@@ -3,11 +3,15 @@ import type { ReactNode } from 'react';
 interface CardProps {
   children: ReactNode;
   className?: string;
+  onClick?: () => void;
 }
 
-export function Card({ children, className }: CardProps) {
+export function Card({ children, className, onClick }: CardProps) {
   return (
-    <div className={`bg-gray-900 rounded-lg border border-gray-800 ${className || ''}`}>
+    <div
+      className={`bg-gray-900 rounded-lg border border-gray-800 ${className || ''} ${onClick ? 'cursor-pointer' : ''}`}
+      onClick={onClick}
+    >
       {children}
     </div>
   );
