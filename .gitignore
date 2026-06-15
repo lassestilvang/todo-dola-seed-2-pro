@@ -5,3 +5,4 @@ pnpm-lock.yaml
 coverage
 playwright/.cache
 playwright/report.json
+backups
