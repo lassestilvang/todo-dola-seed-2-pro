@@ -13,7 +13,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return Response.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    return Response.json(task);
+    return Response.json({ data: task });
   } catch (error) {
     console.error('Failed to fetch task:', error);
     return Response.json({ error: 'Failed to fetch task' }, { status: 500 });
@@ -47,7 +47,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return Response.json({ error: 'Task not found' }, { status: 404 });
     }
 
-    return Response.json(task);
+    return Response.json({ data: task });
   } catch (error) {
     console.error('Failed to update task:', error);
     return Response.json({ error: 'Failed to update task' }, { status: 500 });
@@ -67,7 +67,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const task = await createTask(validated.data as never);
-    return Response.json(task, { status: 201 });
+    return Response.json({ data: task }, { status: 201 });
   } catch (error) {
     console.error('Failed to restore task:', error);
     return Response.json({ error: 'Failed to restore task' }, { status: 500 });
