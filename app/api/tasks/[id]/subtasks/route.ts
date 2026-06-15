@@ -25,7 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     );
     saveDb();
 
-    return Response.json({ id: subtaskId, name: data.name, completed: false }, { status: 201 });
+    return Response.json({ data: { id: subtaskId, name: data.name, completed: false } }, { status: 201 });
   } catch (error) {
     console.error('Failed to create subtask:', error);
     return Response.json({ error: 'Failed to create subtask' }, { status: 500 });
@@ -53,7 +53,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       updatedAt: row[6],
     })) || [];
 
-    return Response.json(subtasks);
+    return Response.json({ data: subtasks });
   } catch (error) {
     console.error('Failed to fetch subtasks:', error);
     return Response.json({ error: 'Failed to fetch subtasks' }, { status: 500 });
