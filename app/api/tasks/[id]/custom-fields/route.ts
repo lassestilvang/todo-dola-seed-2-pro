@@ -26,14 +26,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       [id]
     );
 
-    if (!result || result.length === 0) return Response.json([]);
+    if (!result || result.length === 0) return Response.json({ data: [] });
 
     const values = result[0].values.map((row: unknown[]) => {
       const [id, taskId, fieldId, value, createdAt, updatedAt] = row as [string, string, string, string | null, number, number];
       return { id, taskId, fieldId, value: value ?? '', createdAt, updatedAt };
     });
 
-    return Response.json(values);
+    return Response.json({ data: values });
   } catch (error) {
     console.error('Failed to fetch task custom field values:', error);
     return Response.json({ error: 'Failed to fetch' }, { status: 500 });
@@ -77,7 +77,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     saveDb();
-    return Response.json(result);
+    return Response.json({ data: result });
   } catch (error) {
     console.error('Failed to save custom field value:', error);
     return Response.json({ error: 'Failed to save' }, { status: 500 });
