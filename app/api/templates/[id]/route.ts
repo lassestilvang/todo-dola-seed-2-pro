@@ -10,7 +10,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     if (!template) {
       return Response.json({ error: 'Template not found' }, { status: 404 });
     }
-    return Response.json(template);
+    return Response.json({ data: template });
   } catch (error) {
     console.error('Failed to fetch template:', error);
     return Response.json({ error: 'Failed to fetch template' }, { status: 500 });
@@ -32,7 +32,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!template) {
       return Response.json({ error: 'Template not found' }, { status: 404 });
     }
-    return Response.json(template);
+    return Response.json({ data: template });
   } catch (error) {
     console.error('Failed to update template:', error);
     return Response.json({ error: 'Failed to update template' }, { status: 500 });
@@ -56,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     await initDb();
     const { id } = await params;
     const task = await useTemplate(id);
-    return Response.json(task, { status: 201 });
+    return Response.json({ data: task }, { status: 201 });
   } catch (error) {
     console.error('Failed to use template:', error);
     return Response.json({ error: 'Failed to use template' }, { status: 500 });
