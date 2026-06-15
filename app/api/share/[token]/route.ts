@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
       return Response.json({ error: 'Invalid or expired share link' }, { status: 404 });
     }
 
-    return Response.json(task);
+    return Response.json({ data: task });
   } catch (error) {
     console.error('Failed to get shared task:', error);
     return Response.json({ error: 'Failed to get shared task' }, { status: 500 });
