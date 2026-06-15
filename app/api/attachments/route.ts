@@ -43,7 +43,7 @@ export async function POST(request: Request) {
       saveDb();
     }
 
-    return Response.json({ filename, path: `/uploads/${filename}`, size: file.size });
+    return Response.json({ data: { filename, path: `/uploads/${filename}`, size: file.size } });
   } catch (error) {
     console.error('Failed to upload attachment:', error);
     return Response.json({ error: 'Failed to upload attachment' }, { status: 500 });
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
         name,
         path: `/uploads/${name}`,
       }));
-      return Response.json(files);
+      return Response.json({ data: files });
     }
 
     const filepath = join(uploadDir, filename);
