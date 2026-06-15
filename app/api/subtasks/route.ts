@@ -13,7 +13,7 @@ export async function GET(request: Request) {
     }
 
     const subtasks = await getSubtasks(taskId);
-    return Response.json(subtasks);
+    return Response.json({ data: subtasks });
   } catch (error) {
     console.error('Failed to fetch subtasks:', error);
     return Response.json({ error: 'Failed to fetch subtasks' }, { status: 500 });
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const { taskId, name } = validated.data;
     const subtask = await createSubtask(taskId, name);
 
-    return Response.json(subtask, { status: 201 });
+    return Response.json({ data: subtask }, { status: 201 });
   } catch (error) {
     console.error('Failed to create subtask:', error);
     return Response.json({ error: 'Failed to create subtask' }, { status: 500 });
