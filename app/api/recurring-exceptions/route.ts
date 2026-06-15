@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     }
 
     const exceptions = await getRecurringExceptions(parentTaskId);
-    return Response.json(exceptions);
+    return Response.json({ data: exceptions });
   } catch (error) {
     console.error('Failed to fetch recurring exceptions:', error);
     return Response.json({ error: 'Failed to fetch recurring exceptions' }, { status: 500 });
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     }
 
     const exception = await addRecurringException(taskId, exceptionDate);
-    return Response.json(exception, { status: 201 });
+    return Response.json({ data: exception }, { status: 201 });
   } catch (error) {
     console.error('Failed to add recurring exception:', error);
     return Response.json({ error: 'Failed to add recurring exception' }, { status: 500 });
