@@ -1,8 +1,9 @@
 import { getTaskHistory, getTaskById } from '@/lib/db/queries';
+import type { TaskHistoryEntry } from '@/lib/types';
 import { format } from 'date-fns';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, History, User, Clock } from 'lucide-react';
+import { ArrowLeft, History } from 'lucide-react';
 
 interface TaskHistoryPageProps {
   params: Promise<{ id: string }>;
@@ -17,16 +18,6 @@ export default async function TaskHistoryPage({ params }: TaskHistoryPageProps) 
   }
 
   const history = await getTaskHistory(id);
-
-  function formatValue(value: string | null): string {
-    if (!value) return '';
-    try {
-      const parsed = JSON.parse(value);
-      return typeof parsed === 'object' ? JSON.stringify(parsed, null, 2) : String(parsed);
-    } catch {
-      return String(value);
-    }
-  }
 
   function formatEntryValue(value: unknown): string {
     if (value === null || value === undefined) return '';
@@ -64,8 +55,8 @@ export default async function TaskHistoryPage({ params }: TaskHistoryPageProps) 
             Showing {history.length} change{history.length !== 1 ? 's' : ''}
           </div>
           <ul className="space-y-3">
-            {history.map((entry: Record<string, unknown>) => (
-              <li key={entry.id as string} className="p-4 rounded-lg bg-gray-900 border border-gray-800">
+            {history.map((entry: TaskHistoryEntry) => (
+              <li key={entry.id} className="p-4 rounded-lg bg-gray-900 border border-gray-800">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
@@ -73,24 +64,24 @@ export default async function TaskHistoryPage({ params }: TaskHistoryPageProps) 
                         {String(entry.field)}
                       </span>
                       <span className="text-xs text-gray-500">
-                        {format(new Date(entry.changedAt as number), 'MMM d, HH:mm')}
+                        {format(new Date(entry.changedAt), 'MMM d, HH:mm')}
                       </span>
                     </div>
 
                     <div className="text-sm space-y-1">
-                      {entry.old_value !== null && entry.old_value !== undefined && (
+                      {entry.oldValue !== null && entry.oldValue !== undefined && (
                         <div>
                           <span className="text-gray-400">Previous: </span>
                           <pre className="text-gray-500 text-xs overflow-x-auto inline-block max-w-xs">
-                            {formatEntryValue(entry.old_value as unknown as string)}
+                            {formatEntryValue(entry.oldValue)}
                           </pre>
                         </div>
                       )}
-                      {entry.new_value !== null && entry.new_value !== undefined && (
+                      {entry.newValue !== null && entry.newValue !== undefined && (
                         <div>
                           <span className="text-gray-400">New: </span>
                           <pre className="text-xs overflow-x-auto inline-block max-w-xs">
-                            {formatEntryValue(entry.new_value as unknown as string)}
+                            {formatEntryValue(entry.newValue)}
                           </pre>
                         </div>
                       )}
