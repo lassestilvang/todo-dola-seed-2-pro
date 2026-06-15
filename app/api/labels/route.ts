@@ -17,7 +17,7 @@ export async function GET() {
       color: row[3],
     })) as LabelRow[] || [];
 
-    return Response.json(labels);
+    return Response.json({ data: labels });
   } catch (error) {
     console.error('Failed to fetch labels:', error);
     return Response.json({ error: 'Failed to fetch labels' }, { status: 500 });
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
 
     saveDb();
 
-    return Response.json({ id, name: data.name, emoji: data.emoji, color }, { status: 201 });
+    return Response.json({ data: { id, name: data.name, emoji, color } }, { status: 201 });
   } catch (error) {
     console.error('Failed to create label:', error);
     return Response.json({ error: 'Failed to create label' }, { status: 500 });
