@@ -16,7 +16,7 @@ export async function GET() {
     saveDb();
 
     const tasks = await getDeletedTasks();
-    return Response.json(tasks);
+    return Response.json({ data: tasks });
   } catch (error) {
     console.error('Failed to fetch deleted tasks:', error);
     return Response.json({ error: 'Failed to fetch deleted tasks' }, { status: 500 });
