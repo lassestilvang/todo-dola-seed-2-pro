@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 
 interface EmptyStateProps {
   title: string;
-  description: string;
+  description?: string;
   actionLabel?: string;
   onAction?: () => void;
   icon?: 'task' | 'calendar' | 'label' | 'list' | 'template';
@@ -29,7 +29,7 @@ export default function EmptyState({ title, description, actionLabel, onAction, 
     <div className="p-6 sm:p-8 rounded-lg bg-gray-900 border border-gray-800 text-center">
       {getIcon(icon)}
       <p className="text-gray-300 mb-2 text-lg">{title}</p>
-      <p className="text-sm text-gray-500 mb-4">{description}</p>
+      {description && <p className="text-sm text-gray-500 mb-4">{description}</p>}
       {actionLabel && onAction && (
         <Button onClick={onAction} size="sm">
           <Plus className="w-4 h-4 mr-2" />
