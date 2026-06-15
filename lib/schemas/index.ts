@@ -123,3 +123,27 @@ export const TaskTemplateSchema = z.object({
   priority: PrioritySchema.optional().default('none'),
   labels: z.array(z.string()).optional(),
 });
+
+export const TemplateUseSchema = z.object({
+  variables: z.record(z.string(), z.string()).optional(),
+  name: z.string().optional(),
+  description: z.string().nullable().optional(),
+  listId: z.string().optional(),
+  priority: PrioritySchema.optional(),
+});
+
+export const TaskLinkTypeSchema = z.enum(['blocks', 'related', 'depends_on', 'duplicate']);
+
+export const TaskLinkSchema = z.object({
+  id: z.string(),
+  taskId: z.string(),
+  linkedTaskId: z.string(),
+  type: TaskLinkTypeSchema,
+  createdAt: z.number(),
+});
+
+export const TaskLinkCreateSchema = z.object({
+  taskId: z.string().min(1, 'taskId is required'),
+  linkedTaskId: z.string().min(1, 'linkedTaskId is required'),
+  type: TaskLinkTypeSchema.default('related'),
+});
