@@ -19,6 +19,8 @@ export interface TaskFilter {
   dateTo?: number;
   sort?: SortOption;
   sortDirection?: 'asc' | 'desc';
+  workspaceId?: string;
+  archived?: boolean;
 }
 
 export interface TaskList {
@@ -72,10 +74,13 @@ export interface Task {
   createdAt: number;
   updatedAt: number;
   deletedAt: number | null;
+  assignedTo?: string | null;
+  workspaceId?: string | null;
   labels?: Label[];
   subtasks?: Subtask[];
   recurringExceptions?: number[];
   customFields?: { fieldId: string; value: string }[];
+  parentTaskId?: string | null;
 }
 
 export type ReminderOption = '5min' | '10min' | '30min' | '1hour' | '2hours' | 'today' | 'tomorrow' | null;
@@ -173,4 +178,112 @@ export interface TaskCustomFieldValue {
   value: string;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  description: string | null;
+  createdBy: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type WorkspaceRole = 'admin' | 'editor' | 'viewer';
+
+export interface WorkspaceMember {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  role: WorkspaceRole;
+  joinedAt: number;
+}
+
+export interface Reminder {
+  id: string;
+  taskId: string;
+  reminderTime: number;
+  sentAt: number | null;
+  channel: 'email' | 'in-app' | 'slack' | 'discord';
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export type TaskLinkType = 'blocks' | 'related' | 'depends_on' | 'duplicate';
+
+export interface TaskLink {
+  id: string;
+  taskId: string;
+  linkedTaskId: string;
+  type: TaskLinkType;
+  createdAt: number;
+}
+
+export interface RecurringCompletion {
+  id: string;
+  parentTaskId: string;
+  completedAt: number;
+  createdAt: number;
+}
+
+export interface NoteAttachment {
+  id: string;
+  noteId: string;
+  filename: string;
+  mimetype: string;
+  size: number;
+  createdAt: number;
+}
+
+// Goal Tracking
+export type GoalUnit = '%' | 'tasks' | 'hours' | 'days' | 'points';
+
+export interface Goal {
+  id: string;
+  name: string;
+  description: string | null;
+  targetValue: number;
+  currentValue: number;
+  unit: GoalUnit;
+  deadline: number | null;
+  taskId: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface GoalMilestone {
+  id: string;
+  goalId: string;
+  name: string;
+  targetValue: number;
+  currentValue: number;
+  completed: boolean;
+  completedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Time Blocking
+export interface TimeBlock {
+  id: string;
+  taskId: string | null;
+  name: string;
+  description: string | null;
+  start: number;
+  end: number;
+  color: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// Collaboration
+export interface Activity {
+  id: string;
+  type: 'task_created' | 'task_completed' | 'task_updated' | 'comment_added' | 'task_assigned' | 'label_added';
+  taskId: string;
+  userId: string | null;
+  userName: string | null;
+  details: string | null;
+  createdAt: number;
 }
