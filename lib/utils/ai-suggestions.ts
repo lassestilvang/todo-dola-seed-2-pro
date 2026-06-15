@@ -358,6 +358,7 @@ const LIST_KEYWORDS: Record<string, string> = {
   'learning': 'learning',
   'finance': 'finance',
   'home': 'home',
+  'buy': 'shopping',
 };
 
 export function parseNaturalLanguageTask(input: string): NaturalLanguageParseResult {
