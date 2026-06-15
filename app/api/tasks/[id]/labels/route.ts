@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       color: row[3],
     })) || [];
 
-    return Response.json(labels);
+    return Response.json({ data: labels });
   } catch (error) {
     console.error('Failed to fetch task labels:', error);
     return Response.json({ error: 'Failed to fetch task labels' }, { status: 500 });
