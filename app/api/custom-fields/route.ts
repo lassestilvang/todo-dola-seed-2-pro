@@ -105,3 +105,27 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Failed to create custom field' }, { status: 500 });
   }
 }
+
+export async function DELETE(request: Request) {
+  try {
+    await initDb();
+    const db = getDb();
+    if (!db) throw new Error('Database not initialized');
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return Response.json({ error: 'id is required' }, { status: 400 });
+    }
+
+    db.exec('DELETE FROM custom_fields WHERE id = ?', [id]);
+    db.exec('DELETE FROM task_custom_field_values WHERE field_id = ?', [id]);
+    saveDb();
+
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete custom field:', error);
+    return Response.json({ error: 'Failed to delete custom field' }, { status: 500 });
+  }
+}
