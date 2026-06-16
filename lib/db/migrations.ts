@@ -354,7 +354,96 @@ const activitiesMigration: Migration = {
   `,
 };
 
-export const migrations: Migration[] = [
+// Migration for gamification tracking
+const gamificationMigration: Migration = {
+  version: 20,
+  name: 'add_gamification',
+  sql: `
+    CREATE TABLE IF NOT EXISTS user_badges (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      badge_id TEXT NOT NULL,
+      earned_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_badges(user_id);
+
+    CREATE TABLE IF NOT EXISTS user_progress (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL UNIQUE,
+      streak INTEGER DEFAULT 0,
+      longest_streak INTEGER DEFAULT 0,
+      tasks_completed INTEGER DEFAULT 0,
+      level INTEGER DEFAULT 1,
+      experience INTEGER DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_progress_user ON user_progress(user_id);
+  `,
+};
+
+// Migration for context-aware data
+const contextDataMigration: Migration = {
+  version: 21,
+  name: 'add_context_data',
+  sql: `
+    CREATE TABLE IF NOT EXISTS user_context (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      location_lat REAL,
+      location_lng REAL,
+      place_name TEXT,
+      time_zone TEXT,
+      preferred_hours TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_context_user ON user_context(user_id);
+  `,
+};
+
+// Migration for push subscriptions
+const pushSubscriptionsMigration: Migration = {
+  version: 23,
+  name: 'add_push_subscriptions',
+  sql: `
+    CREATE TABLE IF NOT EXISTS push_subscriptions (
+      id TEXT PRIMARY KEY,
+      token TEXT NOT NULL UNIQUE,
+      user_id TEXT,
+      device_info TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_token ON push_subscriptions(token);
+    CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id);
+  `,
+};
+
+// Migration for task assignments table
+const taskAssignmentsMigration: Migration = {
+  version: 22,
+  name: 'add_task_assignments',
+  sql: `
+    CREATE TABLE IF NOT EXISTS task_assignments (
+      id TEXT PRIMARY KEY,
+      task_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      assigned_by TEXT,
+      assigned_at INTEGER NOT NULL,
+      due_date INTEGER,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_task_assignments_task ON task_assignments(task_id);
+    CREATE INDEX IF NOT EXISTS idx_task_assignments_user ON task_assignments(user_id);
+  `,
+};
+
+// Sort migrations by version
+const sortedMigrations = (migrations: Migration[]): Migration[] => {
+  return [...migrations].sort((a, b) => a.version - b.version);
+};
+
+export const migrations: Migration[] = sortedMigrations([
   {
     version: 1,
     name: 'initial_schema',
@@ -549,9 +638,17 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_custom_views_default ON custom_views(is_default);
     `,
   },
+  {
+    version: 24,
+    name: 'add_user_preferences',
+    sql: `
+      ALTER TABLE users ADD COLUMN preferences TEXT;
+    `,
+  },
   customFieldsMigration,
   notificationsMigration,
   taskAssignmentMigration,
+  performanceIndexesMigration,
   habitsMigration,
   workspacesMigration,
   integrationsMigration,
@@ -560,7 +657,15 @@ export const migrations: Migration[] = [
   recurringCompletionsMigration,
   noteAttachmentsMigration,
   shareTokenExpirationMigration,
-];
+  goalsMigration,
+  timeBlocksMigration,
+  activitiesMigration,
+  gamificationMigration,
+  contextDataMigration,
+  taskAssignmentsMigration,
+  additionalIndexesMigration,
+  pushSubscriptionsMigration,
+]);
 
 type DbExec = { exec: (sql: string, params?: (string | number | null)[]) => unknown[] };
 
