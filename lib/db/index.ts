@@ -8,10 +8,28 @@ const dbPath = path.join(/* turbopackIgnore: true */ process.cwd(), 'db', 'plann
 let dbInstance: Database | null = null;
 let SQLInstance: SqlJsStatic | null = null;
 
+// Connection pool simulation for sql.js (single connection per process)
+const connectionPool: {
+  active: boolean;
+  lastUsed: number;
+  queryCount: number;
+} = {
+  active: false,
+  lastUsed: 0,
+  queryCount: 0
+};
+
 export class DbError extends Error {
   constructor(message: string, public readonly code?: string) {
     super(message);
     this.name = 'DbError';
+  }
+}
+
+export class TransactionError extends DbError {
+  constructor(message: string, public readonly originalError?: Error) {
+    super(message, 'TX_ERROR');
+    this.name = 'TransactionError';
   }
 }
 
@@ -95,6 +113,11 @@ export function runInTransaction<T>(fn: (tx: Transaction) => T): T {
   const db = getDb();
   if (!db) throw new DbError('Database not initialized', 'DB_NOT_INITIALIZED');
 
+  // Track connection pool usage
+  connectionPool.active = true;
+  connectionPool.lastUsed = Date.now();
+  connectionPool.queryCount++;
+
   // Use SAVEPOINT for proper transaction rollback support
   db.exec('SAVEPOINT tx_start');
 
@@ -114,17 +137,76 @@ export function runInTransaction<T>(fn: (tx: Transaction) => T): T {
     db.exec('RELEASE SAVEPOINT tx_start');
   } catch (error) {
     // Rollback on error
-    db.exec('ROLLBACK TO SAVEPOINT tx_start');
-    db.exec('RELEASE SAVEPOINT tx_start');
-    throw error instanceof DbError ? error : new DbError(
-      error instanceof Error ? error.message : 'Transaction failed',
-      'TX_ERROR'
+    try {
+      db.exec('ROLLBACK TO SAVEPOINT tx_start');
+      db.exec('RELEASE SAVEPOINT tx_start');
+    } catch {
+      // Ignore rollback errors
+    }
+    const originalError = error instanceof Error ? error : undefined;
+    throw new TransactionError(
+      error instanceof DbError ? error.message : 'Transaction failed',
+      originalError
     );
   } finally {
     saveDb();
+    connectionPool.active = false;
   }
 
   return result;
+}
+
+// Query optimization helpers
+export function buildPaginatedQuery(
+  baseQuery: string,
+  countQuery: string,
+  params: unknown[],
+  limit: number,
+  offset: number,
+  runQueryFn: (sql: string, params: unknown[]) => Record<string, unknown>[]
+): { paginatedQuery: string; count: number; totalPages: number } {
+  const paginatedQuery = `${baseQuery} LIMIT ? OFFSET ?`;
+  const countRows = runQueryFn(countQuery, params);
+  const count = countRows.length;
+  const totalPages = Math.ceil(count / limit) || 0;
+
+  return { paginatedQuery, count, totalPages };
+}
+
+// Batch insert for better performance
+export function batchInsert(
+  table: string,
+  columns: string[],
+  rows: unknown[][],
+  batchSize: number = 100
+): void {
+  const db = getDb();
+  if (!db) throw new DbError('Database not initialized', 'DB_NOT_INITIALIZED');
+
+  const placeholders = columns.map(() => '?').join(', ');
+  const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
+
+  for (let i = 0; i < rows.length; i += batchSize) {
+    const batch = rows.slice(i, i + batchSize);
+    for (const row of batch) {
+      db.exec(sql, row as (string | number | null)[]);
+    }
+  }
+}
+
+// Get connection pool stats
+export function getDbStats(): {
+  active: boolean;
+  lastUsed: number;
+  queryCount: number;
+  isInitialized: boolean;
+} {
+  return {
+    active: connectionPool.active,
+    lastUsed: connectionPool.lastUsed,
+    queryCount: connectionPool.queryCount,
+    isInitialized: dbInstance !== null
+  };
 }
 
 export function resetDb(): void {
@@ -157,6 +239,11 @@ export async function clearDb(): Promise<void> {
   db.exec('DELETE FROM recurring_completions');
   db.exec('DELETE FROM notifications');
   db.exec('DELETE FROM reminders');
+  db.exec('DELETE FROM task_assignments');
+  db.exec('DELETE FROM push_subscriptions');
+  db.exec('DELETE FROM user_badges');
+  db.exec('DELETE FROM user_progress');
+  db.exec('DELETE FROM user_context');
   saveDb();
 }
 
@@ -176,7 +263,8 @@ export async function exportDb(): Promise<{
     'custom_fields', 'task_custom_field_values', 'recurring_exceptions', 'recurring_completions',
     'notifications', 'reminders', 'task_links', 'habits', 'habit_completions',
     'workspaces', 'workspace_members', 'integrations', 'activities', 'goals',
-    'goal_milestones', 'time_blocks', 'migrations'
+    'goal_milestones', 'time_blocks', 'migrations', 'task_assignments',
+    'push_subscriptions', 'user_badges', 'user_progress', 'user_context'
   ];
 
   const data: Record<string, unknown[]> = {};
@@ -222,7 +310,7 @@ export async function importDb(exportData: {
     'custom_fields', 'task_custom_field_values', 'recurring_exceptions', 'recurring_completions',
     'notifications', 'reminders', 'task_links', 'habits', 'habit_completions',
     'workspaces', 'workspace_members', 'integrations', 'activities', 'goals',
-    'goal_milestones', 'time_blocks', 'migrations'
+    'goal_milestones', 'time_blocks', 'migrations', 'task_assignments'
   ];
 
   for (const table of tablesToRemove) {
