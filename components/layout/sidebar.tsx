@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Inbox, CalendarDays, CalendarRange, ListTodo, Plus, Menu, BarChart3, Calendar, LayoutGrid, Cloud, CloudOff, Trash2, Bell } from 'lucide-react';
+import { Inbox, CalendarDays, CalendarRange, ListTodo, Plus, Menu, BarChart3, Calendar, LayoutGrid, Cloud, CloudOff, Trash2, Bell, Search } from 'lucide-react';
 import ThemeToggle from '@/components/shared/ThemeToggle';
 import ListManager from '@/components/lists/ListManager';
 import NotificationCenter from '@/components/notifications/NotificationCenter';
+import { GlobalSearch } from '@/components/shared/GlobalSearch';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -88,6 +89,10 @@ export default function Sidebar() {
           </div>
         </div>
 
+        <div className="mb-4">
+          <GlobalSearch />
+        </div>
+
         <nav className="space-y-1 mb-8">
           {navItems.map(item => {
             const Icon = item.icon;
@@ -103,8 +108,9 @@ export default function Sidebar() {
                     ? 'bg-gray-800 dark:bg-gray-200 text-blue-500'
                     : 'text-muted-foreground hover:bg-gray-800/50 dark:hover:bg-gray-200/50'
                 }`}
+                aria-current={isActive ? 'page' : undefined}
               >
-                <Icon className="w-4 h-4" />
+                <Icon className="w-4 h-4" aria-hidden="true" />
                 <span className="flex-1">{item.label}</span>
               </Link>
             );
