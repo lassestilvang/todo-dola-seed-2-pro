@@ -484,7 +484,7 @@ export function parseNaturalLanguageTask(input: string): NaturalLanguageParseRes
     .trim();
 
   // Extract description (text after a colon or dash, or the remaining text if long)
-  const descMatch = cleanedInput.match(/[:\-]\s*(.+)$/i);
+  const descMatch = cleanedInput.match(/[:\\-]\s*(.+)$/i);
   if (descMatch && task.name.length > 10) {
     task.description = descMatch[1].trim();
     task.name = cleanedInput.substring(0, descMatch.index).trim();
