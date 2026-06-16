@@ -92,6 +92,8 @@ export interface TimeEntry {
   description: string | null;
   startedAt: number;
   endedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 export interface TaskHistoryEntry {
@@ -210,6 +212,16 @@ export interface Reminder {
   updatedAt: number;
 }
 
+export interface Notification {
+  id: string;
+  type: 'mention' | 'assignment' | 'reminder' | 'activity';
+  taskId: string;
+  userId: string;
+  message: string;
+  read: boolean;
+  createdAt: number;
+}
+
 export type TaskLinkType = 'blocks' | 'related' | 'depends_on' | 'duplicate';
 
 export interface TaskLink {
@@ -286,4 +298,51 @@ export interface Activity {
   userName: string | null;
   details: string | null;
   createdAt: number;
+}
+
+// Habits
+export interface Habit {
+  id: string;
+  name: string;
+  description: string | null;
+  streak: number;
+  lastCompleted: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface HabitCompletion {
+  id: string;
+  habitId: string;
+  completedAt: number;
+}
+
+// Task Assignments
+export interface TaskAssignment {
+  id: string;
+  taskId: string;
+  userId: string;
+  assignedBy: string | null;
+  assignedAt: number;
+  dueDate?: number | null;
+}
+
+// Integrations
+export interface Integration {
+  id: string;
+  type: 'notion' | 'slack' | 'caldav' | 'webhook';
+  config: Record<string, unknown>;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface Webhook {
+  id: string;
+  url: string;
+  events: string[];
+  secret: string;
+  enabled: boolean;
+  createdAt: number;
+  updatedAt: number;
 }
