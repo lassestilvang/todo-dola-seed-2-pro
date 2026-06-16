@@ -1,83 +1,130 @@
 import { initDb, getDb, saveDb } from '@/lib/db';
-import { randomUUID } from 'crypto';
+import { generateId, now } from '@/lib/db/core';
+import { withErrorHandling, withRateLimit } from '@/lib/api/handler';
+import { ApiError, ErrorCodes } from '@/lib/api/middleware';
+import { z } from 'zod';
 
-export async function POST(request: Request) {
-  try {
-    await initDb();
-    const { taskId, duration, description } = await request.json();
+const CreateTimeEntrySchema = z.object({
+  taskId: z.string().min(1, 'taskId is required'),
+  duration: z.number().min(1, 'duration is required'),
+  description: z.string().optional(),
+});
 
-    if (!taskId || !duration) {
-      return Response.json({ error: 'Task ID and duration are required' }, { status: 400 });
-    }
+const StartTimerSchema = z.object({
+  taskId: z.string().min(1, 'taskId is required'),
+});
 
-    const db = getDb();
-    if (!db) throw new Error('Database not initialized');
+export const GET = withErrorHandling(withRateLimit()(async (request: Request) => {
+  await initDb();
+  const { searchParams } = new URL(request.url);
+  const taskId = searchParams.get('taskId');
+  const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 1000);
+  const offset = parseInt(searchParams.get('offset') || '0');
 
-    const now = Date.now();
-    const id = randomUUID();
+  const db = getDb();
+  if (!db) throw new ApiError(500, 'Database not initialized', ErrorCodes.DB_ERROR);
 
-    db.exec(
-      'INSERT INTO time_entries (id, task_id, duration, description, started_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, taskId, duration, description, now, now]
-    );
+  let query = `
+    SELECT id, task_id as taskId, duration, description, started_at as startedAt, ended_at as endedAt, created_at as createdAt
+    FROM time_entries
+    WHERE 1=1
+  `;
+  const params: (string | number | null)[] = [];
 
-    // Update actual_time on task
-    db.exec(
-      'UPDATE tasks SET actual_time = COALESCE(actual_time, 0) + ? WHERE id = ?',
-      [duration, taskId]
-    );
-
-    saveDb();
-
-    return Response.json({ data: { id, taskId, duration, description, startedAt: now, endedAt: null, createdAt: now } }, { status: 201 });
-  } catch (error) {
-    console.error('Failed to create time entry:', error);
-    return Response.json({ error: 'Failed to create time entry' }, { status: 500 });
+  if (taskId) {
+    query += ' AND task_id = ?';
+    params.push(taskId);
   }
-}
 
-export async function GET(request: Request) {
-  try {
-    await initDb();
-    const { searchParams } = new URL(request.url);
-    const taskId = searchParams.get('taskId');
+  query += ' ORDER BY started_at DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
 
-    const db = getDb();
-    if (!db) throw new Error('Database not initialized');
+  const result = db.exec(query, params);
+  if (!result || result.length === 0) {
+    return Response.json({ data: [], total: 0 });
+  }
 
-    let query = `
-      SELECT id, task_id as taskId, duration, description, started_at as startedAt, ended_at as endedAt, created_at as createdAt
-      FROM time_entries
-      WHERE 1=1
-    `;
-    const params: unknown[] = [];
+  const columns = result[0].columns;
+  const rows = result[0].values;
 
-    if (taskId) {
-      query += ' AND task_id = ?';
-      params.push(taskId);
-    }
-
-    query += ' ORDER BY started_at DESC';
-
-    const result = db.exec(query, params as never[]);
-    if (!result || result.length === 0) {
-      return Response.json({ data: [] });
-    }
-
-    const columns = result[0].columns;
-    const rows = result[0].values;
-
-    const entries = rows.map((row: unknown[]) => {
-      const obj: Record<string, unknown> = {};
-      columns.forEach((col: string, i: number) => {
-        obj[col] = row[i];
-      });
-      return obj;
+  const entries = rows.map((row: unknown[]) => {
+    const obj: Record<string, unknown> = {};
+    columns.forEach((col: string, i: number) => {
+      obj[col] = row[i];
     });
+    return obj;
+  });
 
-    return Response.json({ data: entries });
-  } catch (error) {
-    console.error('Failed to fetch time entries:', error);
-    return Response.json({ error: 'Failed to fetch time entries' }, { status: 500 });
+  // Get total count
+  let countQuery = 'SELECT COUNT(*) as count FROM time_entries';
+  const countParams: (string | number | null)[] = [];
+  if (taskId) {
+    countQuery += ' WHERE task_id = ?';
+    countParams.push(taskId);
   }
-}
+  const countResult = db.exec(countQuery, countParams);
+  const total = (countResult[0]?.values[0]?.[0] as number) ?? 0;
+
+  return Response.json({ data: entries, total });
+}));
+
+export const POST = withErrorHandling(withRateLimit()(async (request: Request) => {
+  await initDb();
+  const body = await request.json();
+
+  const validated = CreateTimeEntrySchema.safeParse(body);
+  if (!validated.success) {
+    throw new ApiError(400, 'Invalid time entry data', ErrorCodes.VALIDATION_ERROR, validated.error.flatten());
+  }
+
+  const { taskId, duration, description } = validated.data;
+
+  const db = getDb();
+  if (!db) throw new ApiError(500, 'Database not initialized', ErrorCodes.DB_ERROR);
+
+  const nowVal = now();
+  const id = generateId();
+
+  db.exec(
+    'INSERT INTO time_entries (id, task_id, duration, description, started_at, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, taskId, duration, description ?? null, nowVal, nowVal]
+  );
+
+  // Update actual_time on task
+  db.exec(
+    'UPDATE tasks SET actual_time = COALESCE(actual_time, 0) + ? WHERE id = ?',
+    [duration, taskId]
+  );
+
+  saveDb();
+
+  return Response.json({ data: { id, taskId, duration, description, startedAt: nowVal, endedAt: null, createdAt: nowVal } }, { status: 201 });
+}));
+
+// Start a timer (creates a time entry that's still running)
+export const PUT = withErrorHandling(withRateLimit()(async (request: Request) => {
+  await initDb();
+  const body = await request.json();
+
+  const validated = StartTimerSchema.safeParse(body);
+  if (!validated.success) {
+    throw new ApiError(400, 'Invalid timer data', ErrorCodes.VALIDATION_ERROR, validated.error.flatten());
+  }
+
+  const { taskId } = validated.data;
+
+  const db = getDb();
+  if (!db) throw new ApiError(500, 'Database not initialized', ErrorCodes.DB_ERROR);
+
+  const nowVal = now();
+  const id = generateId();
+
+  db.exec(
+    'INSERT INTO time_entries (id, task_id, duration, description, started_at, created_at) VALUES (?, ?, 0, ?, ?, ?)',
+    [id, taskId, 'Timer started', nowVal, nowVal]
+  );
+
+  saveDb();
+
+  return Response.json({ data: { id, taskId, duration: 0, description: 'Timer started', startedAt: nowVal, endedAt: null, createdAt: nowVal } }, { status: 201 });
+}));
