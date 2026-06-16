@@ -427,19 +427,19 @@ describe('Database Queries', () => {
       const list = await createList({ name: 'Bulk List' });
       await createTask({ name: 'Task 1', listId: list.id });
       await createTask({ name: 'Task 2', listId: list.id });
-      const { getTasksByList } = await import('@/lib/db/queries');
-      const tasks = await getTasksByList(list.id);
+      const { getTasks } = await import('@/lib/db/queries');
+      const tasks = await getTasks({ listId: list.id });
       expect(tasks.length).toBe(2);
     });
 
     it('gets completed tasks', async () => {
       await createTask({ name: 'Task 1' });
       await createTask({ name: 'Task 2' });
+      const { getTasks } = await import('@/lib/db/queries');
       const task = await getTasks({ listId: 'inbox' });
       const firstTask = task[0];
       await updateTask(firstTask.id, { completed: true, completedAt: Date.now() });
-      const { getCompletedTasks } = await import('@/lib/db/queries');
-      const completed = await getCompletedTasks();
+      const completed = await getTasks({ completed: true });
       expect(completed.length).toBe(1);
     });
   });

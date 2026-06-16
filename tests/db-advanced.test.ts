@@ -428,7 +428,8 @@ describe('Database - Advanced Operations', () => {
   describe('Upcoming Reminders', () => {
     it('should get upcoming reminders', async () => {
       const now = Date.now();
-      const { createTask, getUpcomingReminders } = await import('@/lib/db/queries');
+      const { createTask } = await import('@/lib/db/queries');
+      const { getUpcomingReminders } = await import('@/lib/db/task-assignments');
 
       // Create task with reminder in 1 hour
       await createTask({
@@ -441,14 +442,15 @@ describe('Database - Advanced Operations', () => {
     });
 
     it('should return empty array when no reminders', async () => {
-      const { getUpcomingReminders } = await import('@/lib/db/queries');
+      const { getUpcomingReminders } = await import('@/lib/db/task-assignments');
       const reminders = await getUpcomingReminders();
       expect(reminders).toEqual([]);
     });
 
     it('returns reminders for tasks with reminder set', async () => {
       const now = Date.now();
-      const { createTask, getUpcomingReminders, updateTask } = await import('@/lib/db/queries');
+      const { createTask } = await import('@/lib/db/queries');
+      const { getUpcomingReminders } = await import('@/lib/db/task-assignments');
 
       const task = await createTask({
         name: 'Task with reminder',
