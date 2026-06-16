@@ -1,106 +1,99 @@
-import { initDb, getDb, saveDb } from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
+import { initDb } from '@/lib/db';
+import { getTasks } from '@/lib/db/queries';
+import { getLists } from '@/lib/db/queries';
+import { getLabels } from '@/lib/db/queries';
 
-interface SyncData {
-  lists: Array<{ id: string; name: string; emoji?: string; color?: string; isInbox?: boolean; sortOrder?: number; createdAt: number; updatedAt: number }>;
-  labels: Array<{ id: string; name: string; emoji?: string; color?: string; createdAt: number; updatedAt: number }>;
-  tasks: Array<{ id: string; listId: string; name: string; description?: string; date?: number; deadline?: number; reminder?: number; priority?: string; completed: boolean; completedAt?: number; createdAt: number; updatedAt: number }>;
-  subtasks: Array<{ id: string; taskId: string; name: string; completed: boolean; sortOrder: number; createdAt: number; updatedAt: number }>;
-  taskLabels: Array<{ taskId: string; labelId: string }>;
-  taskHistory: Array<{ id: string; taskId: string; field: string; oldValue?: string; newValue?: string; changedAt: number }>;
-  timeEntries: Array<{ id: string; taskId: string; duration: number; description?: string; startedAt: number; createdAt: number }>;
-  taskDependencies: Array<{ id: string; taskId: string; dependsOnTaskId: string; createdAt: number }>;
+interface SyncChange {
+  id: string;
+  table: string;
+  operation: 'create' | 'update' | 'delete';
+  timestamp: number;
+  data?: Record<string, unknown>;
 }
 
-// Sync device tracking table
-async function createSyncTable(db: ReturnType<typeof getDb>) {
-  if (!db) return;
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS sync_devices (
-      device_id TEXT PRIMARY KEY,
-      data TEXT NOT NULL,
-      last_modified INTEGER NOT NULL,
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    )
-  `);
-  db.exec('CREATE INDEX IF NOT EXISTS idx_sync_devices_modified ON sync_devices(last_modified)');
-}
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     await initDb();
-    const db = getDb();
-    if (!db) throw new Error('Database not initialized');
+    const body = await request.json();
+    const { lastSyncTime, deviceId } = body;
 
-    await createSyncTable(db);
+    const changes: SyncChange[] = [];
 
-    const { deviceId, lastModified, data, checksum } = await request.json();
-
-    if (!deviceId || !data) {
-      return Response.json({ error: 'deviceId and data are required' }, { status: 400 });
-    }
-
-    // Check if there's newer data from another device
-    const existing = db.exec(
-      'SELECT data, last_modified FROM sync_devices WHERE device_id = ?',
-      [deviceId]
-    )[0]?.values[0] as [string, number] | undefined;
-
-    if (existing && existing[1] > lastModified) {
-      return Response.json({ data: {
-        conflict: true,
-        serverData: JSON.parse(existing[0]),
-        serverModified: existing[1],
-      }});
-    }
-
-    const now = Date.now();
-    const dataStr = JSON.stringify(data);
-
-    db.exec(
-      'INSERT OR REPLACE INTO sync_devices (device_id, data, last_modified, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-      [deviceId, dataStr, now, now, now]
-    );
-    saveDb();
-
-    return Response.json({ data: {success: true, lastModified: now} });
-  } catch (error) {
-    console.error('Sync failed:', error);
-    return Response.json({ error: 'Sync failed' }, { status: 500 });
-  }
-}
-
-export async function GET(request: Request) {
-  try {
-    await initDb();
-    const db = getDb();
-    if (!db) throw new Error('Database not initialized');
-
-    await createSyncTable(db);
-
-    const { searchParams } = new URL(request.url);
-    const deviceId = searchParams.get('deviceId');
-    const since = searchParams.get('since');
-
-    if (!deviceId) {
-      return Response.json({ error: 'deviceId is required' }, { status: 400 });
-    }
-
-    const result = db.exec(
-      'SELECT data, last_modified FROM sync_devices WHERE device_id = ?',
-      [deviceId]
-    )[0]?.values[0] as [string, number] | undefined;
-
-    if (result && (!since || result[1] > parseInt(since, 10))) {
-      return Response.json({
-        data: JSON.parse(result[0]),
-        lastModified: result[1],
+    const tasks = await getTasks({ dateFrom: lastSyncTime });
+    for (const task of tasks) {
+      changes.push({
+        id: task.id,
+        table: 'tasks',
+        operation: 'update',
+        timestamp: task.updatedAt,
+        data: JSON.parse(JSON.stringify(task)),
       });
     }
 
-    return Response.json({ data: {data: null, lastModified: 0} });
+    const lists = await getLists();
+    for (const list of lists) {
+      changes.push({
+        id: list.id,
+        table: 'lists',
+        operation: 'update',
+        timestamp: list.updatedAt,
+        data: JSON.parse(JSON.stringify(list)),
+      });
+    }
+
+    const labels = await getLabels();
+    for (const label of labels) {
+      changes.push({
+        id: label.id,
+        table: 'labels',
+        operation: 'update',
+        timestamp: label.updatedAt,
+        data: JSON.parse(JSON.stringify(label)),
+      });
+    }
+
+    changes.sort((a, b) => a.timestamp - b.timestamp);
+
+    return NextResponse.json({
+      data: {
+        changes,
+        lastSyncTime: Date.now(),
+      },
+    });
   } catch (error) {
-    console.error('Sync fetch failed:', error);
-    return Response.json({ error: 'Sync fetch failed' }, { status: 500 });
+    console.error('Sync error:', error);
+    return NextResponse.json(
+      { error: 'Sync failed' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  try {
+    await initDb();
+    const { searchParams } = new URL(request.url);
+    const deviceId = searchParams.get('deviceId');
+    const lastSyncTime = parseInt(searchParams.get('lastSync') || '0');
+
+    const tasks = await getTasks();
+    const lists = await getLists();
+    const labels = await getLabels();
+
+    return NextResponse.json({
+      data: {
+        tasks: tasks.map(t => JSON.parse(JSON.stringify(t))),
+        lists: lists.map(l => JSON.parse(JSON.stringify(l))),
+        labels: labels.map(l => JSON.parse(JSON.stringify(l))),
+        lastSyncTime: Date.now(),
+      },
+    });
+  } catch (error) {
+    console.error('Sync fetch error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch sync data' },
+      { status: 500 }
+    );
   }
 }
