@@ -1,65 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { HelpCircle, X, ArrowUp, ArrowDown, Check, Plus } from 'lucide-react';
+import { HelpCircle, X, Zap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { loadShortcuts } from '@/components/layout/KeyboardShortcutSettings';
 
 interface KeyboardShortcutsProps {
   onNewTask: () => void;
   onSearch: () => void;
+  onQuickAdd?: (text: string) => void;
 }
-
-const shortcuts = [
-  { category: 'Tasks', items: [
-    { key: 'Cmd/Ctrl+K', description: 'Search tasks' },
-    { key: 'Cmd/Ctrl+N', description: 'New task' },
-    { key: '↑ ↓', description: 'Navigate tasks' },
-    { key: 'Shift+Enter', description: 'Toggle task complete' },
-    { key: 'Cmd/Ctrl+Shift+C', description: 'Clear completed tasks' },
-    { key: 'Cmd/Ctrl+Shift+N', description: 'New task in current list' },
-  ]},
-  { category: 'Navigation', items: [
-    { key: 'Cmd/Ctrl+1-4', description: 'Switch views (Today, 7 days, Upcoming, All)' },
-    { key: 'Cmd/Ctrl+/', description: 'Go to inbox' },
-    { key: 'G + T', description: 'Go to today view' },
-    { key: 'G + K', description: 'Go to kanban board' },
-    { key: 'G + D', description: 'Go to dashboard' },
-  ]},
-  { category: 'Lists', items: [
-    { key: 'Cmd/Ctrl+Shift+L', description: 'Focus list filter' },
-    { key: 'G + L', description: 'Go to lists manager' },
-  ]},
-  { category: 'System', items: [
-    { key: 'Cmd/Ctrl+Shift+?', description: 'Show shortcuts' },
-    { key: 'Escape', description: 'Close dialogs/modals' },
-    { key: 'Cmd/Ctrl+S', description: 'Save (when editing)' },
-  ]},
-];
 
 export default function KeyboardShortcuts({ onNewTask, onSearch }: KeyboardShortcutsProps) {
   const [showHelp, setShowHelp] = useState(false);
+  const [shortcuts] = useState(() => loadShortcuts());
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd/Ctrl + n: New task
-      if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
-        e.preventDefault();
-        onNewTask();
-      }
-
-      // Cmd/Ctrl + k: Search
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        onSearch();
-      }
-
-      // Cmd/Ctrl + Shift + ?: Show shortcuts help
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === '?') {
-        e.preventDefault();
-        setShowHelp(true);
-      }
-
-      // Escape: Close dialogs
+      // Check for Escape first (always close dialogs)
       if (e.key === 'Escape') {
         const openDialogs = document.querySelectorAll('[data-slot="dialog-content"]');
         openDialogs.forEach(dialog => {
@@ -67,72 +25,84 @@ export default function KeyboardShortcuts({ onNewTask, onSearch }: KeyboardShort
           if (closeBtn) closeBtn.click();
         });
         setShowHelp(false);
+        return;
       }
 
-      // Navigation shortcuts
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey) {
-        if (e.key === '1') {
-          e.preventDefault();
+      // Quick add with Q key
+      if (e.key === 'q' && e.metaKey) {
+        e.preventDefault();
+        onNewTask();
+        return;
+      }
+
+      // Find matching shortcut
+      const matchedShortcut = shortcuts.find(s => {
+        if (!s.enabled) return false;
+
+        const keyMatch = s.key && e.key.toLowerCase() === s.key.toLowerCase();
+        const metaMatch = s.metaKey ? e.metaKey : true;
+        const ctrlMatch = s.ctrlKey ? e.ctrlKey : true;
+        const shiftMatch = s.shiftKey ? e.shiftKey : true;
+
+        return keyMatch && metaMatch && ctrlMatch && shiftMatch;
+      });
+
+      if (!matchedShortcut) return;
+
+      e.preventDefault();
+
+      // Handle specific shortcuts
+      switch (matchedShortcut.id) {
+        case 'new-task':
+        case 'new-task-shift':
+          onNewTask();
+          break;
+        case 'search':
+          onSearch();
+          break;
+        case 'show-help':
+          setShowHelp(true);
+          break;
+        case 'go-today':
           window.location.href = '/today';
-        } else if (e.key === '2') {
-          e.preventDefault();
+          break;
+        case 'go-next7':
           window.location.href = '/next7days';
-        } else if (e.key === '3') {
-          e.preventDefault();
+          break;
+        case 'go-upcoming':
           window.location.href = '/upcoming';
-        } else if (e.key === '4') {
-          e.preventDefault();
+          break;
+        case 'go-all':
           window.location.href = '/all';
-        }
-      }
-
-      // Go to inbox
-      if ((e.metaKey || e.ctrlKey) && e.key === '/' && !e.shiftKey) {
-        e.preventDefault();
-        window.location.href = '/';
-      }
-
-      // Go to lists manager
-      if ((e.metaKey || e.ctrlKey) && e.key === 'l' && !e.shiftKey) {
-        e.preventDefault();
-        window.location.href = '/lists';
-      }
-
-      // New task in current list (Cmd+Shift+N)
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'n') {
-        e.preventDefault();
-        // Dispatch event that AddTaskButton can listen to
-        const listId = window.location.pathname.startsWith('/lists') ? undefined :
-                       window.location.pathname === '/today' ? 'inbox' : undefined;
-        const event = new CustomEvent('open-add-task', { detail: { listId } });
-        window.dispatchEvent(event);
-      }
-
-      // Go to specific views
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.metaKey) {
-        if (e.key === 't') {
-          e.preventDefault();
-          window.location.href = '/today';
-        } else if (e.key === 'k') {
-          e.preventDefault();
-          window.location.href = '/kanban';
-        } else if (e.key === 'd') {
-          e.preventDefault();
-          window.location.href = '/dashboard';
-        }
+          break;
+        case 'go-inbox':
+          window.location.href = '/';
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onNewTask, onSearch]);
+  }, [shortcuts, onNewTask, onSearch]);
+
+  const getShortcutDisplay = (id: string): string => {
+    const shortcut = shortcuts.find(s => s.id === id);
+    if (!shortcut) return '';
+
+    const parts: string[] = [];
+    if (shortcut.metaKey) parts.push('⌘');
+    if (shortcut.ctrlKey) parts.push('Ctrl');
+    if (shortcut.shiftKey) parts.push('Shift');
+    if (shortcut.key) parts.push(shortcut.key.toUpperCase());
+    return parts.join('+');
+  };
 
   return (
     <>
       <button
         onClick={() => setShowHelp(true)}
         className="fixed bottom-4 right-4 p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors z-40"
-        title="Keyboard shortcuts (Cmd+Shift+?)"
+        title="Keyboard shortcuts"
       >
         <HelpCircle className="w-4 h-4" />
       </button>
@@ -147,24 +117,51 @@ export default function KeyboardShortcuts({ onNewTask, onSearch }: KeyboardShort
               </button>
             </div>
             <div className="space-y-4">
-              {shortcuts.map(category => (
-                <div key={category.category}>
-                  <h4 className="text-xs uppercase text-gray-500 mb-2">{category.category}</h4>
-                  <ul className="space-y-2">
-                    {category.items.map(item => (
-                      <li key={item.key} className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">{item.description}</span>
-                        <kbd className="px-2 py-1 bg-gray-800 rounded text-sm font-mono">{item.key}</kbd>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 pt-3 border-t border-gray-800">
-              <p className="text-xs text-gray-500">
-                Press <kbd className="px-1 py-0.5 bg-gray-800 rounded">Cmd+Shift+?</kbd> or <kbd className="px-1 py-0.5 bg-gray-800 rounded">Ctrl+Shift+?</kbd> to hide this help
-              </p>
+              <div>
+                <h4 className="text-xs uppercase text-gray-500 mb-2">Tasks</h4>
+                <ul className="space-y-2">
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Search tasks</span>
+                    <kbd className="px-2 py-1 bg-gray-800 rounded text-sm font-mono">{getShortcutDisplay('search')}</kbd>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">New task</span>
+                    <kbd className="px-2 py-1 bg-gray-800 rounded text-sm font-mono">{getShortcutDisplay('new-task')}</kbd>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="text-xs uppercase text-gray-500 mb-2">Navigation</h4>
+                <ul className="space-y-2">
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Today view</span>
+                    <kbd className="px-2 py-1 bg-gray-800 rounded text-sm font-mono">{getShortcutDisplay('go-today')}</kbd>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">All tasks</span>
+                    <kbd className="px-2 py-1 bg-gray-800 rounded text-sm font-mono">{getShortcutDisplay('go-all')}</kbd>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="text-xs uppercase text-gray-500 mb-2">System</h4>
+                <ul className="space-y-2">
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Show shortcuts</span>
+                    <kbd className="px-2 py-1 bg-gray-800 rounded text-sm font-mono">{getShortcutDisplay('show-help')}</kbd>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Close dialogs</span>
+                    <kbd className="px-2 py-1 bg-gray-800 rounded text-sm font-mono">Esc</kbd>
+                  </li>
+                  <li className="flex items-center justify-between">
+                    <span className="text-sm">Quick add task</span>
+                    <kbd className="px-2 py-1 bg-gray-800 rounded text-sm font-mono">Q</kbd>
+                  </li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>

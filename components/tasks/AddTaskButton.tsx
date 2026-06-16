@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Plus, Repeat, Calendar, Sparkles } from 'lucide-react';
+import { ShortcutHint } from '@/components/ui/ShortcutHint';
 import {
   Dialog,
   DialogContent,
@@ -231,6 +232,7 @@ export default function AddTaskButton({ listId = 'inbox', onTaskCreated }: AddTa
     <Dialog open={open} onOpenChange={setOpen}>
       <Button onClick={() => setOpen(true)} className="fixed bottom-6 right-6 rounded-full w-14 h-14 shadow-lg">
         <Plus className="w-6 h-6" />
+        <ShortcutHint shortcut="⌘N" className="absolute -bottom-1 -right-1 bg-gray-700 border-gray-600" />
       </Button>
       <DialogContent className="max-w-md">
         <DialogHeader>
