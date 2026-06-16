@@ -23,10 +23,19 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    const loadSettings = () => {
-      const saved = localStorage.getItem('taskSettings');
-      if (saved) {
-        setSettings(JSON.parse(saved));
+    const loadSettings = async () => {
+      try {
+        const res = await fetch('/api/preferences');
+        if (res.ok) {
+          const data = await res.json();
+          setSettings(prev => ({ ...prev, ...data.data }));
+        }
+      } catch {
+        // Fallback to localStorage
+        const saved = localStorage.getItem('taskSettings');
+        if (saved) {
+          setSettings(JSON.parse(saved));
+        }
       }
     };
     loadSettings();
@@ -36,6 +45,13 @@ export default function SettingsPage() {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
     localStorage.setItem('taskSettings', JSON.stringify(updated));
+
+    // Also save to server
+    fetch('/api/preferences', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updated),
+    }).catch(() => {});
   };
 
   const resetAllData = () => {
