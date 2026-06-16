@@ -265,7 +265,7 @@ Uses sql.js (SQLite in WebAssembly) for client-side storage with persistence to 
 - CSRF protection utilities added
 
 ### Test Coverage
-- 1047+ passing tests
+- 1061+ passing tests
 - New error handler test suite
 - Improved test mocking patterns
 - Mobile hooks tests added
@@ -295,13 +295,22 @@ Uses sql.js (SQLite in WebAssembly) for client-side storage with persistence to 
 - Improved API client with error handling
 - Added Settings, Templates, Kanban, and Calendar screens
 - React Query hooks for state management
+- Added Habits and Goals screens for feature parity
+- Added Habits and Goals API client methods
 
 ### New Features
 - **Task Archiving**: Archive tasks instead of permanent deletion
 - **Search API**: Fuzzy search with Fuse.js integration
 - **Sort Support**: Sort tasks by date, created, priority, name, or list
 - **Share Token Expiration**: Optional expiration for shared task links
+- **Natural Language Tasks**: Type "Call Mom tomorrow at 3pm #work" and auto-parse into structured tasks
+- **Voice Input**: Hands-free task creation with speech-to-text
+- **Task Relationships Graph**: Visual dependency and link visualization
+- **Backend API Layer**: Server-side PostgreSQL/Drizzle ORM for multi-user support
 - **Natural Language Task Creation**: Parse text like "Buy milk tomorrow at 3pm" into structured tasks with date, priority, labels, and more
+- **AI Task Prioritization**: Auto-prioritize tasks based on deadlines and labels
+- **Smart Defaults**: Auto-generate subtasks for complex projects, suggest labels based on keywords
+- **@mentions & Notifications**: Mention team members in comments, receive notifications
 
 ## Performance
 
@@ -385,6 +394,28 @@ SMTP_PASS=your-app-password
 |--------|----------|-------------|
 | POST | `/api/ai/schedule` | Generate smart schedule suggestions |
 | POST | `/api/ai/batch-update` | Batch update tasks |
+| GET | `/api/intelligence/prioritize` | Get auto-priority suggestions for tasks |
+| POST | `/api/intelligence/prioritize` | Get priority suggestions for specific tasks |
+
+### Smart Defaults
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/smart-defaults` | Get smart suggestions for subtasks, labels, priority |
+
+### Notifications
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/notifications?userId=...` | List notifications for a user |
+| POST | `/api/notifications` | Create notification |
+| PATCH | `/api/notifications?id=...` | Mark notification as read |
+| DELETE | `/api/notifications?id=...` | Delete notification |
+
+### Time Analytics
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/time-analytics?type=allocation` | Get time allocation by labels |
+| GET | `/api/time-analytics?type=correlation` | Get productivity correlation |
+| GET | `/api/time-analytics?type=focus` | Get focus time vs task completion |
 
 ### Integrations
 | Method | Endpoint | Description |
