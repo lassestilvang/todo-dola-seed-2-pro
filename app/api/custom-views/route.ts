@@ -1,36 +1,37 @@
 import { initDb } from '@/lib/db';
 import { getCustomViews, createCustomView } from '@/lib/db/queries';
+import { withErrorHandling, withRateLimit } from '@/lib/api/handler';
+import { ApiError, ErrorCodes } from '@/lib/api/middleware';
+import { z } from 'zod';
 
-export async function GET() {
-  try {
-    await initDb();
-    const views = await getCustomViews();
-    return Response.json({ data: views });
-  } catch (error) {
-    console.error('Failed to fetch custom views:', error);
-    return Response.json({ error: 'Failed to fetch custom views' }, { status: 500 });
+const CreateViewSchema = z.object({
+  name: z.string().min(1, 'name is required'),
+  icon: z.string().optional(),
+  filterConfig: z.string().min(1, 'filterConfig is required'),
+  isDefault: z.boolean().optional(),
+});
+
+export const GET = withErrorHandling(withRateLimit()(async () => {
+  await initDb();
+  const views = await getCustomViews();
+  return Response.json({ data: views });
+}));
+
+export const POST = withErrorHandling(withRateLimit()(async (request: Request) => {
+  await initDb();
+  const body = await request.json();
+
+  const validated = CreateViewSchema.safeParse(body);
+  if (!validated.success) {
+    throw new ApiError(400, 'Invalid view data', ErrorCodes.VALIDATION_ERROR, validated.error.flatten());
   }
-}
 
-export async function POST(request: Request) {
-  try {
-    await initDb();
-    const body = await request.json();
+  const view = await createCustomView({
+    name: validated.data.name,
+    icon: validated.data.icon || '📋',
+    filterConfig: validated.data.filterConfig,
+    isDefault: validated.data.isDefault || false,
+  });
 
-    if (!body.name || !body.filterConfig) {
-      return Response.json({ error: 'name and filterConfig are required' }, { status: 400 });
-    }
-
-    const view = await createCustomView({
-      name: body.name,
-      icon: body.icon || '📋',
-      filterConfig: body.filterConfig,
-      isDefault: body.isDefault || false,
-    });
-
-    return Response.json({ data: view }, { status: 201 });
-  } catch (error) {
-    console.error('Failed to create custom view:', error);
-    return Response.json({ error: 'Failed to create custom view' }, { status: 500 });
-  }
-}
+  return Response.json({ data: view }, { status: 201 });
+}));
