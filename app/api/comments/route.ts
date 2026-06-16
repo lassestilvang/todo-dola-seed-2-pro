@@ -1,48 +1,110 @@
 import { initDb, saveDb } from '@/lib/db';
-import { getComments, createComment, updateComment, deleteComment, createActivity } from '@/lib/db/queries';
+import { getComments, createComment, updateComment, deleteComment, createActivity, createNotificationWithTimestamp } from '@/lib/db/queries';
+import { withErrorHandling, withRateLimit, validateParams } from '@/lib/api/handler';
+import { ApiError, validateRequiredFields, ErrorCodes } from '@/lib/api/middleware';
+import { z } from 'zod';
 
-export async function GET(request: Request) {
-  try {
-    await initDb();
-    const { searchParams } = new URL(request.url);
-    const taskId = searchParams.get('taskId');
+const CreateCommentSchema = z.object({
+  taskId: z.string().min(1, 'taskId is required'),
+  content: z.string().min(1, 'content is required'),
+  author: z.string().optional().nullable(),
+});
 
-    if (!taskId) {
-      return Response.json({ error: 'Task ID is required' }, { status: 400 });
-    }
+const UpdateCommentSchema = z.object({
+  content: z.string().min(1, 'content is required'),
+});
 
-    const comments = await getComments(taskId);
-    return Response.json({ data: comments });
-  } catch (error) {
-    console.error('Failed to fetch comments:', error);
-    return Response.json({ error: 'Failed to fetch comments' }, { status: 500 });
+// Extract mentions from text
+function extractMentions(text: string): string[] {
+  const mentionRegex = /@(\w+)/g;
+  const mentions: string[] = [];
+  let match;
+  while ((match = mentionRegex.exec(text)) !== null) {
+    mentions.push(match[1]);
   }
+  return mentions;
 }
 
-export async function POST(request: Request) {
-  try {
-    await initDb();
-    const { taskId, content, author } = await request.json();
+export const GET = withErrorHandling(withRateLimit()(async (request: Request) => {
+  await initDb();
+  const { searchParams } = new URL(request.url);
+  const taskId = searchParams.get('taskId');
 
-    if (!taskId || !content) {
-      return Response.json({ error: 'Task ID and content are required' }, { status: 400 });
-    }
+  if (!taskId) {
+    throw new ApiError(400, 'Task ID is required', ErrorCodes.MISSING_FIELDS, { missingFields: ['taskId'] });
+  }
 
-    const comment = await createComment(taskId, content, author);
+  const comments = await getComments(taskId);
+  return Response.json({ data: comments });
+}));
 
-    // Log activity
-    await createActivity({
-      type: 'comment_added',
-      taskId,
-      userId: author || null,
-      userName: author || null,
-      details: content.substring(0, 100),
+export const POST = withErrorHandling(withRateLimit()(async (request: Request) => {
+  await initDb();
+  const body = await request.json();
+
+  const validated = CreateCommentSchema.safeParse(body);
+  if (!validated.success) {
+    throw new ApiError(400, 'Invalid comment data', ErrorCodes.VALIDATION_ERROR, validated.error.flatten());
+  }
+
+  const comment = await createComment(validated.data.taskId, validated.data.content, validated.data.author || undefined);
+
+  // Extract mentions and create notifications
+  const mentions = extractMentions(validated.data.content);
+  for (const mention of mentions) {
+    await createNotificationWithTimestamp({
+      type: 'mention',
+      taskId: validated.data.taskId,
+      userId: mention,
+      message: `${validated.data.author || 'Someone'} mentioned you in a comment`,
+      read: false,
     });
-
-    saveDb();
-    return Response.json({ data: comment }, { status: 201 });
-  } catch (error) {
-    console.error('Failed to create comment:', error);
-    return Response.json({ error: 'Failed to create comment' }, { status: 500 });
   }
-}
+
+  await createActivity({
+    type: 'comment_added',
+    taskId: validated.data.taskId,
+    userId: validated.data.author || null,
+    userName: validated.data.author || null,
+    details: validated.data.content.substring(0, 100),
+  });
+
+  saveDb();
+  return Response.json({ data: comment, mentions }, { status: 201 });
+}));
+
+export const PATCH = withErrorHandling(withRateLimit()(async (request: Request) => {
+  await initDb();
+  const body = await request.json();
+
+  const id = body.id;
+  if (!id) {
+    throw new ApiError(400, 'Comment ID is required', ErrorCodes.MISSING_FIELDS, { missingFields: ['id'] });
+  }
+
+  const validated = UpdateCommentSchema.safeParse({ content: body.content });
+  if (!validated.success) {
+    throw new ApiError(400, 'Invalid comment data', ErrorCodes.VALIDATION_ERROR, validated.error.flatten());
+  }
+
+  const comment = await updateComment(id, validated.data.content);
+  if (!comment) {
+    throw new ApiError(404, 'Comment not found', ErrorCodes.NOT_FOUND);
+  }
+
+  saveDb();
+  return Response.json({ data: comment });
+}));
+
+export const DELETE = withErrorHandling(withRateLimit()(async (request: Request) => {
+  await initDb();
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    throw new ApiError(400, 'Comment ID is required', ErrorCodes.MISSING_FIELDS, { missingFields: ['id'] });
+  }
+
+  await deleteComment(id);
+  return Response.json({ success: true });
+}));
