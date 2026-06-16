@@ -6,6 +6,7 @@ import Sidebar from '@/components/layout/sidebar';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import DefaultViewRedirect from '@/components/DefaultViewRedirect';
 import ServiceWorkerRegister from './service-worker';
+import { SkipLink } from '@/components/ui/SkipLink';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -43,9 +44,10 @@ export default function RootLayout({
       <body className={`${inter.className} min-h-full antialiased`}>
         <Providers>
           <DefaultViewRedirect>
+            <SkipLink />
             <div className="flex min-h-screen">
               <Sidebar />
-              <main className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 pb-safe">
+              <main id="main-content" className="flex-1 overflow-auto p-4 sm:p-6 lg:p-8 pb-safe" tabIndex={-1}>
                 <ErrorBoundary>
                   <div className="max-w-5xl mx-auto">
                     {children}
