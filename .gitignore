@@ -7,3 +7,4 @@ playwright/.cache
 playwright/report.json
 backups
 tsconfig.tsbuildinfo
+tsconfig.tsbuildinfo
