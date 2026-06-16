@@ -1,0 +1,8 @@
+.next
+node_modules
+.db
+.git
+.env.local
+.env.*.local
+*.log
+pnpm-lock.yaml
