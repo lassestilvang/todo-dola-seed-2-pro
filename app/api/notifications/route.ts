@@ -1,68 +1,58 @@
-import { initDb } from '@/lib/db';
+import { NextRequest, NextResponse } from 'next/server';
+import { initDb, saveDb } from '@/lib/db';
+import { getNotifications, createNotification, markNotificationRead, markAllNotificationsRead, deleteNotification } from '@/lib/db/queries';
 
-export async function POST(request: Request) {
-  try {
-    await initDb();
-    const body = await request.json();
-    const { provider, event, taskId, message } = body;
-
-    if (!provider || !event || !taskId) {
-      return Response.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    const taskRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/tasks/${taskId}`);
-    const task = taskRes.ok ? await taskRes.json() : null;
-
-    const notification = {
-      id: crypto.randomUUID(),
-      taskId,
-      provider,
-      event,
-      message: message || `${event} for task: ${task?.name || taskId}`,
-      createdAt: Date.now(),
-    };
-
-    // Send to webhook or chat platform
-    if (process.env.SLACK_WEBHOOK_URL && provider === 'slack') {
-      await fetch(process.env.SLACK_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: message || `Task update: ${task?.name || taskId}`,
-        }),
-      });
-    }
-
-    if (process.env.DISCORD_WEBHOOK_URL && provider === 'discord') {
-      await fetch(process.env.DISCORD_WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: message || `**${event}**: ${task?.name || taskId}`,
-        }),
-      });
-    }
-
-    return Response.json({ data: notification });
-  } catch (error) {
-    console.error('Notification failed:', error);
-    return Response.json({ error: 'Failed to send notification' }, { status: 500 });
-  }
-}
-
-// Get notification settings for a task
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  await initDb();
   const { searchParams } = new URL(request.url);
+  const userId = searchParams.get('userId');
   const taskId = searchParams.get('taskId');
 
-  if (!taskId) {
-    return Response.json({ error: 'taskId required' }, { status: 400 });
+  const notifications = await getNotifications(userId || undefined, taskId || undefined);
+  return NextResponse.json({ data: notifications });
+}
+
+export async function POST(request: NextRequest) {
+  await initDb();
+  const body = await request.json();
+
+  const notification = await createNotification(body);
+  saveDb();
+
+  return NextResponse.json({ data: notification }, { status: 201 });
+}
+
+export async function PATCH(request: NextRequest) {
+  await initDb();
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+  const userId = searchParams.get('userId');
+
+  if (!id) {
+    return NextResponse.json({ error: 'Notification ID is required' }, { status: 400 });
   }
 
-  // Return notification settings
-  return Response.json({ data: {
-    taskId,
-    providers: ['slack', 'discord', 'email'],
-    events: ['created', 'completed', 'updated', 'comment'],
-  }});
+  if (userId) {
+    await markAllNotificationsRead(userId);
+  } else {
+    await markNotificationRead(id);
+  }
+  saveDb();
+
+  return NextResponse.json({ success: true });
+}
+
+export async function DELETE(request: NextRequest) {
+  await initDb();
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+
+  if (!id) {
+    return NextResponse.json({ error: 'Notification ID is required' }, { status: 400 });
+  }
+
+  await deleteNotification(id);
+  saveDb();
+
+  return NextResponse.json({ success: true });
 }
