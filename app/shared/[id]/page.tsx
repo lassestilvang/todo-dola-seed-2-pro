@@ -52,7 +52,7 @@ export default async function SharedTaskPage({ params }: SharedTaskPageProps) {
           <div className="mt-4">
             <h2 className="text-sm font-semibold text-gray-400 mb-2">Labels</h2>
             <div className="flex gap-2">
-              {task.labels.map(label => (
+              {task.labels.map((label: { id: string; emoji: string; name: string; color: string }) => (
                 <span
                   key={label.id}
                   className="px-2 py-1 rounded text-xs"
@@ -69,7 +69,7 @@ export default async function SharedTaskPage({ params }: SharedTaskPageProps) {
           <div className="mt-4">
             <h2 className="text-sm font-semibold text-gray-400 mb-2">Subtasks</h2>
             <ul className="space-y-1">
-              {task.subtasks.map(subtask => (
+              {task.subtasks.map((subtask: { id: string; completed: boolean; name: string }) => (
                 <li key={subtask.id} className="flex items-center gap-2 text-sm">
                   <span className={subtask.completed ? 'line-through text-gray-500' : ''}>
                     {subtask.name}
