@@ -1,0 +1,27 @@
+{
+  "version": 2,
+  "name": "todo-dola-seed-2-pro",
+  "alias": ["todo-dola.vercel.app"],
+  "routes": [
+    {
+      "src": "/api/tasks",
+      "methods": ["GET", "POST", "PATCH", "DELETE"]
+    },
+    {
+      "src": "/api/([^"]+)",
+      "methods": ["GET", "POST", "PATCH", "DELETE"]
+    }
+  ],
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": ["db/**/*.db"]
+      }
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
