@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=/app/db/planner.db
+      - SENTRY_DSN=${SENTRY_DSN}
+    volumes:
+      - ./db:/app/db
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - worker
+
+  worker:
+    build: .
+    command: npx tsx worker.ts
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=/app/db/planner.db
+    volumes:
+      - ./db:/app/db
+    restart: unless-stopped
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  redis-data:
